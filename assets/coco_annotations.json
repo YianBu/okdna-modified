@@ -290,6 +290,15 @@
             "width": 1920,
             "date_captured": null,
             "id": 50
+        },
+        {
+            "license": 0,
+            "url": null,
+            "file_name": "images/16_eternal_nightmare_activity.png",
+            "height": 1080,
+            "width": 1920,
+            "date_captured": null,
+            "id": 51
         }
     ],
     "annotations": [
@@ -1204,6 +1213,21 @@
             "iscrowd": 0,
             "ignore": 0,
             "segmentation": []
+        },
+        {
+            "id": 68,
+            "image_id": 51,
+            "category_id": 68,
+            "bbox": [
+                1524,
+                960,
+                32,
+                32
+            ],
+            "area": 1024,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
         }
     ],
     "categories": [
@@ -1525,6 +1549,11 @@
         {
             "id": 67,
             "name": "fish_caught",
+            "supercategory": ""
+        },
+        {
+            "id": 68,
+            "name": "en_start_btn",
             "supercategory": ""
         }
     ]

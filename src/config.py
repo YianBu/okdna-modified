@@ -215,6 +215,7 @@ config = {
         ["src.tasks.fullauto.AutoLetterOpenTask", "AutoLetterOpenTask"],
         ["src.tasks.fullauto.AutoTheatreTask", "AutoTheatreTask"],
         ["src.tasks.fullauto.AutoHuntMoonTask", "AutoHuntMoonTask"],
+        ["src.tasks.fullauto.AutoEternalNightmareTask", "AutoEternalNightmareTask"],
         # 全自动（休闲）
         ["src.tasks.fullauto.AutoFishTask_Leisure", "AutoFishTask_Leisure"],
         ["src.tasks.fullauto.AutoFishTask", "AutoFishTask"],
