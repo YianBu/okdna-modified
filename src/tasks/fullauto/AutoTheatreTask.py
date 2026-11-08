@@ -100,7 +100,6 @@ STAGE_PENDING_HOLD = 8.0
 
 # 「主控角色」-> 该角色的技能手法（和「自动狩月人之阶」同一套写法）：
 #   opening: 起手序列。每次开打先放一遍（只放一次），放完再接循环序列；可以写「锁定」动作
-#   lock_settle: 可选。起手序列里**没写**「锁定」时，走位完自动锁定 + 等这么久（默认 LOCK_SETTLE）
 #   spam + timed: 可选，"按真实时间"的循环手法（和 steps 二选一）：
 #     spam  = "普攻"（一直按，不加额外间隔）或 (动作, 最小间隔秒数)
 #     timed = ((间隔秒数, (动作, ...)), ...)：每隔这么多秒，把这一组动作连着按完
@@ -109,12 +108,12 @@ STAGE_PENDING_HOLD = 8.0
 #   loop:    True  = steps 一直循环放；False = steps 整串放一遍就停
 # 走位和主控角色无关（所有角色共用上面那段录制时序），角色之间只差这张表。
 CHARACTER_ROTATIONS = {
-    # 止流：起手序列 = 长按战技 -> 短按战技 -> 终结技 -> 短按战技 -> 短按战技 -> 终结技，
-    # 每个动作之后等 1 秒（等演出/后摇走完）。
-    # 循环序列 = 每隔 1.5 秒放一次终结技。
-    "止流": {"opening": (("长按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0),
+    # 止流：起手序列 = 长按战技 -> 短按战技 -> 终结技 ->（等 4 秒）-> 短按战技 -> 短按战技
+    # -> 终结技，其余每个动作之后等 1 秒（等演出/后摇走完）。
+    # 循环序列 = 每隔 1.4 秒放一次终结技。
+    "止流": {"opening": (("长按战技", 1.0), ("短按战技", 1.0), ("终结技", 4.0),
                          ("短按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0)),
-             "timed": ((1.5, ("终结技",)),)},
+             "timed": ((1.4, ("终结技",)),)},
 }
 
 # 「无」：不套角色手法，直接执行「全局技能设定」的技能配置
@@ -136,8 +135,6 @@ CUSTOM_ACTIONS = {
     "重击": "重击",
     "锁定": "锁定",
 }
-# 起手序列里没写「锁定」时，走位完自动锁定 + 等这么久（默认值，角色表可覆盖）
-LOCK_SETTLE = 1.5
 # 「长按战技」按住的秒数、「重击」按住左键的秒数（和「全局技能设定」的默认值一致）
 COMBAT_LONG_PRESS = 1.0
 HEAVY_ATTACK_HOLD = 1.5
@@ -161,9 +158,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     技能：只在目标栏菱形变红（真在打）期间释放。切层、结算、重开、走位之前都会关掉技能总闸
     （见 `stop_skills`），免得按出去的技能被游戏缓冲到下一层（下一局）的开场、把走位吃掉。
-    技能按「主控角色」走：止流按它的手法（长按战技、短按战技、终结技、短按战技、短按战技、
-    终结技，每个动作间隔 1 秒；之后每 1.5 秒放一次终结技）、「无」直接执行「全局技能设定」、
-    「自定义」用「自定义序列」；走位、结算、重开期间不按技能。
+    技能按「主控角色」走：止流按它的手法（长按战技、短按战技、终结技，第一次终结技后等
+    4 秒，再短按战技、短按战技、终结技，其余间隔 1 秒；之后每 1.4 秒放一次终结技）、
+    「无」直接执行「全局技能设定」、「自定义」用「自定义序列」；走位、结算、重开期间不按技能。
     """
 
     def __init__(self, *args, **kwargs):
@@ -207,7 +204,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.character_spam = None
         self.character_timed = ()
         self.timed_next = []
-        self.lock_settle = LOCK_SETTLE
         self.character_opening = ()
         self.character_loops = False
         self.opening_done = False
@@ -381,14 +377,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.skill_tick.reset()
             self.reset_sequence_state()
             self.reset_stage_detector()
-            # 角色手法里没有「锁定」动作的（止流）走位开战之后自动锁一次；
-            # 「无」/「自定义」保持原来的流程（不自动锁），要锁就在「自定义序列」里自己写「锁定」。
-            if (self.current_character() in CHARACTER_ROTATIONS
-                    and not self.plan_has_lock()):
-                self.log_info("走位结束，按锁定键（%s）锁定目标，稳 %.1f 秒"
-                              % (self.get_lock_key(), self.lock_settle))
-                self.press_hotkey(self.get_lock_key())
-                self.sleep(self.lock_settle)
         if not self.fight_until_result():
             # 30 秒没进战斗（含结算页被漏读、掉线）：已经重开了一局，退回第 1 层重新走位开机关
             self.mission_started = False
@@ -585,6 +573,8 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 self.sleep(LAYER_SWITCH_SETTLE)
                 self.apply_afk_mode()
                 self.reset_stage_detector()
+                # 切层之后重新从起手序列开始：新一层是新的开打，opening 要再放一遍。
+                self.reset_sequence_state()
                 # 移动刚做完这一轮不按技能：等下一轮重新确认在战斗中再说
                 in_combat = False
             self.tick_skills(in_combat)
@@ -597,17 +587,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     def current_character(self):
         return self.config.get("主控角色", DEFAULT_CHARACTER)
 
-    def plan_has_lock(self):
-        """这套手法里是不是自己带了「锁定」动作（带了就不在走位之后自动锁）。"""
-        actions = [action for action, _ in self.character_opening]
-        if self.character_steps:
-            actions += [action for action, _ in self.character_steps]
-        if self.character_spam:
-            actions.append(self.character_spam[0])
-        for _, group in self.character_timed:
-            actions += list(group)
-        return "锁定" in actions
-
     def setup_character(self):
         """按「主控角色」取技能序列；取不到就退回全局技能计时器。"""
         name = self.current_character()
@@ -619,7 +598,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 self.character_steps = steps
                 self.character_spam = None
                 self.character_timed = ()
-                self.lock_settle = LOCK_SETTLE
                 self.character_opening = ()
                 self.character_loops = False
                 self.reset_sequence_state()
@@ -632,7 +610,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.character_steps = None
             self.character_spam = None
             self.character_timed = ()
-            self.lock_settle = LOCK_SETTLE
             self.character_opening = ()
             self.character_loops = False
             self.reset_sequence_state()
@@ -643,7 +620,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.character_steps = None
             self.character_spam = None
             self.character_timed = ()
-            self.lock_settle = LOCK_SETTLE
             self.character_opening = ()
             self.character_loops = False
         else:
@@ -652,7 +628,6 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             # spam 可以写 "普攻"（一直按、不加额外间隔），也可以写 (动作, 间隔秒数)
             self.character_spam = (spam, 0.0) if isinstance(spam, str) else spam
             self.character_timed = rotation.get("timed") or ()
-            self.lock_settle = float(rotation.get("lock_settle", LOCK_SETTLE))
             self.character_opening = rotation.get("opening") or ()
             self.character_loops = bool(rotation.get("loop", False))
         self.reset_sequence_state()
@@ -690,7 +665,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.timed_next = [0.0] * len(self.character_timed)
 
     def play_character_sequence(self):
-        """按「主控角色」的手法放技能：锁定目标之后才开始。
+        """按「主控角色」的手法放技能：确认开打之后才开始。
 
         opening（可选）：这一局开打后先放一遍，只放一次（止流的起手序列就是这条）。
         spam + timed（可选）：按真实时间跑的循环 —— 一直按 spam、每隔 N 秒放一组 timed。
@@ -739,7 +714,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         """按真实时间放技能（spam + timed）：一次调用最多做一件事。
 
         先看有没有到点的 timed 组（到了就把这一组连着按完、再安排下一次），没有就按一下 spam。
-        止流那套「每隔 1.5 秒放一次终结技」就是这种 —— 按真实时间算，
+        止流那套「每隔 1.4 秒放一次终结技」就是这种 —— 按真实时间算，
         不受主循环一轮多久影响。
         """
         now = time.time()
