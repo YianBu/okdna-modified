@@ -22,7 +22,7 @@
   排查过程、踩过的坑、设计取舍写进提交信息；那些留在与用户的对话里，需要留档就写进代码注释
   或本文件。
 - 本仓库的版本号（`v1.x`）与上游完全独立，不要拿上游的 tag 做比较或参考。本仓库自己的发布
-  序列到目前是 `v1.0.1`…`v1.2.2`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
+  序列到目前是 `v1.0.1`…`v1.2.3`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
   本地 tag 已清理过，只剩本仓库自己的 `v1.x`；万一又看到上游 tag（换了机器、重新克隆等），
   别照它们编号，本地删掉即可。
 - 版本号**逢 10 进 1**：`v1.0.9` 之后是 `v1.1.0`（不是 `v1.0.10`），`v1.1.9` 之后是 `v1.2.0`，
@@ -30,7 +30,7 @@
   步骤，Release 被跳过），后来作为新版本正式发出，现在已经在用。
 - **「传云」的含义**：用户说「传云」（或「传云 git」「推送更新」）时，默认理解为「提交改动 ->
   本仓库版本号 +1 打 annotated tag -> 推送」：即 `git push mine master` 加
-  `git push mine <下一个版本号>`（当前下一个是 `v1.2.3`），让 CI 出 release 给 Launcher 用户。
+  `git push mine <下一个版本号>`（当前下一个是 `v1.2.4`），让 CI 出 release 给 Launcher 用户。
   推完把下一个版本号记住（再次「传云」时就再 +1）。**只推这一个 tag，绝不 `--tags`。**
 - 发布 = 打 `v*` tag 推到 `mine`：CI 按 tag 改写 `src/config.py` 的 version 并发布 release，
   Launcher 用户就是靠这个 tag 才拿得到更新的。
@@ -124,9 +124,12 @@
   `\d/\d` 永远匹配不上。现在的开战判据是左侧任务面板整行匹配 `TARGET_WAVE_PATTERN`
   （`波次\s*\d+\s*/\s*\d+`，框是 `SCREEN_BOX.DEFENCE_TARGET_WAVE`）：只认「波次 x/y」
   这一行的存在，不写死总波次（不同防御本的波次上限不同）。
-- **开局走位不写死时长**：按住 W 轮询开战判据（`Auto65ArtifactTask_Fast._combat_started`
-  委托 `AutoDefence.is_in_combat`），判到开战后再多走 `WALK_EXTRA_TIME`（1 秒）；
-  `AUTO_ADVANCE_TIME_OUT`（20 秒）没判到就松手，交给已有的「等待战斗开始超时→重开」
+- **开局走位先判图、再走对应路线**：`Auto65ArtifactTask_Fast` 继承 `DungeonActionMixin`，
+  判图和走位跟「自动开密函」的扼守共用 `DungeonActionLogic.DUNGEON_MAPS`（扼守斜走 /
+  扼守直走；直走不设框、当兜底）。配置「地图选择」默认全勾，判出来的图不在勾选里就抛
+  `MapDetectionError` 重开一轮。直走路线是按住 W 轮询开战判据
+  （`hold_w_until_combat`，判据委托 `AutoDefence.is_in_combat`），判到开战后再多走
+  `HOLD_W_EXTRA_TIME`（1 秒），20 秒没判到就松手，交给已有的「等待战斗开始超时→重开」
   流程处理。
 - **放技能的 in_combat 和波次计时是耦合的，别单独换**：`handle_in_mission` 里放技能仍用
   `current_wave != -1` 当 in_combat，且 `wave_start_time` 只在 `current_wave` 变化时
@@ -210,8 +213,8 @@
 - **走位每局一次，不是每波一次**：`_walked_this_mission` 标志控制；波次间「继续挑战」
   不能复位它，只有真正开新局才复位。
 - **探险机关 = F 交互后反复按 F 破解到开战**（`solve_exploration_mechanism`，参考自动
-  沉浸式戏剧的做法）；「前进到开战」是按住 W 轮询开战判据、判到后再走 1 秒（复用自动
-  防御的 `_combat_started`）。
+  沉浸式戏剧的做法）；「前进到开战」是按住 W 轮询开战判据、判到后再走 1 秒
+  （`hold_w_until_combat`，和自动防御共用）。
 - **游戏内「自动轮次」开关会干扰轮次计算**：进难度选择界面后、点「选择密函」前必须关掉
   （`ensure_auto_rounds_off`）。判据是开启时多出的「轮次x/99」行
   （`LETTER_AUTO_ROUNDS_STATE` 框）加标题行上移约 95px；开关在标题行**右侧**的滑块
