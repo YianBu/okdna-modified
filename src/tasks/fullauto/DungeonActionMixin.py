@@ -23,9 +23,8 @@ from src.tasks.fullauto.DungeonActionLogic import (
     default_map_for_mode,
 )
 
-# 前进到开战：照「自动防御」（Auto65ArtifactTask_Fast.walk_to_aim）的写法 —— 开战判据
-# 成立后再多走这么多秒（进交战区还差一点），走满 HOLD_W_TIME_OUT 秒还没开战就松手，
-# 交给外层超时重开（这里不自己放弃）。
+# 前进到开战：开战判据成立后再多走这么多秒（进交战区还差一点），走满 HOLD_W_TIME_OUT
+# 秒还没开战就松手，交给外层超时重开（这里不自己放弃）。「自动防御」的直走也走这里。
 HOLD_W_EXTRA_TIME = 1.0
 HOLD_W_TIME_OUT = 20
 
@@ -157,15 +156,15 @@ class DungeonActionMixin:
     def execute_defence_straight(self):
         """扼守直走（图4）：先往左轻点一下，再按住 W 前进到开战。
 
-        对应序列：a 0.2s -> 按住 W 前进到开战。前进到开战参考「自动防御」
-        （Auto65ArtifactTask_Fast.walk_to_aim）：开战后再走 HOLD_W_EXTRA_TIME 秒。
+        对应序列：a 0.2s -> 按住 W 前进到开战（见 hold_w_until_combat）：开战后再走
+        HOLD_W_EXTRA_TIME 秒。
         """
         self.log_info("[扼守直走] 开始走位")
         self.send_key("a", down_time=0.2)
         return self.hold_w_until_combat()
 
     def hold_w_until_combat(self):
-        """按住 W 前进到开战（照「自动防御」Auto65ArtifactTask_Fast.walk_to_aim 的写法）。
+        """按住 W 前进到开战（「自动防御」和「自动开密函」的直走共用这一份）。
 
         开战判据成立后再走 HOLD_W_EXTRA_TIME 秒；走满 HOLD_W_TIME_OUT 秒还没开战就记
         一条日志、松手返回 False（重开交给外层）。不管走哪条路径，结束时都把移动键和

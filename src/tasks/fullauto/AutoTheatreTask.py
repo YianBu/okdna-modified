@@ -1,4 +1,5 @@
 from qfluentwidgets import FluentIcon
+import re
 import time
 
 from ok import Logger, TaskDisabledException
@@ -97,6 +98,52 @@ STAGE_RED_TIME_OUT = 15
 # 不能让它把技能永远锁死（那会变成"整层一个技能都不放"），过期就当没读到。
 STAGE_PENDING_HOLD = 8.0
 
+# 「主控角色」-> 该角色的技能手法（和「自动狩月人之阶」同一套写法）：
+#   opening: 起手序列。每次开打先放一遍（只放一次），放完再接循环序列；可以写「锁定」动作
+#   lock_settle: 可选。起手序列里**没写**「锁定」时，走位完自动锁定 + 等这么久（默认 LOCK_SETTLE）
+#   spam + timed: 可选，"按真实时间"的循环手法（和 steps 二选一）：
+#     spam  = "普攻"（一直按，不加额外间隔）或 (动作, 最小间隔秒数)
+#     timed = ((间隔秒数, (动作, ...)), ...)：每隔这么多秒，把这一组动作连着按完
+#   steps:   ((动作, 放完之后等几秒), ...)，动作取值沿用「全局技能设定」那套
+#            （短按战技 / 长按战技 / 终结技 / 魔灵支援 / 普攻 / 重击）
+#   loop:    True  = steps 一直循环放；False = steps 整串放一遍就停
+# 走位和主控角色无关（所有角色共用上面那段录制时序），角色之间只差这张表。
+CHARACTER_ROTATIONS = {
+    # 止流：起手序列 = 长按战技 -> 短按战技 -> 终结技 -> 短按战技 -> 短按战技 -> 终结技，
+    # 每个动作之后等 1 秒（等演出/后摇走完）。
+    # 循环序列 = 每隔 1.5 秒放一次终结技。
+    "止流": {"opening": (("长按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0),
+                         ("短按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0)),
+             "timed": ((1.5, ("终结技",)),)},
+}
+
+# 「无」：不套角色手法，直接执行「全局技能设定」的技能配置
+NO_CHARACTER = "无"
+# 「自定义」：技能与等待全由用户自己写（见「自定义序列」）
+CUSTOM_CHARACTER = "自定义"
+# 默认主控角色 = 无（不套角色手法，用全局技能配置）
+DEFAULT_CHARACTER = NO_CHARACTER
+CUSTOM_SEQUENCE_KEY = "自定义序列"
+DEFAULT_CUSTOM_SEQUENCE = "终结技:1"
+# 自定义序列里允许的动作名（战技 = 短按），和 release_character_action 的分支一一对应
+CUSTOM_ACTIONS = {
+    "战技": "短按战技",
+    "短按战技": "短按战技",
+    "长按战技": "长按战技",
+    "终结技": "终结技",
+    "魔灵支援": "魔灵支援",
+    "普攻": "普攻",
+    "重击": "重击",
+    "锁定": "锁定",
+}
+# 起手序列里没写「锁定」时，走位完自动锁定 + 等这么久（默认值，角色表可覆盖）
+LOCK_SETTLE = 1.5
+# 「长按战技」按住的秒数、「重击」按住左键的秒数（和「全局技能设定」的默认值一致）
+COMBAT_LONG_PRESS = 1.0
+HEAVY_ATTACK_HOLD = 1.5
+# timed 那一组里"连按几下"的间隔（比如连按两下战技，中间隔这么久）
+TIMED_BURST_GAP = 0.1
+
 
 class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     """自动沉浸式戏剧（不朽剧目·勇者征程）。
@@ -114,6 +161,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     技能：只在目标栏菱形变红（真在打）期间释放。切层、结算、重开、走位之前都会关掉技能总闸
     （见 `stop_skills`），免得按出去的技能被游戏缓冲到下一层（下一局）的开场、把走位吃掉。
+    技能按「主控角色」走：止流按它的手法（长按战技、短按战技、终结技、短按战技、短按战技、
+    终结技，每个动作间隔 1 秒；之后每 1.5 秒放一次终结技）、「无」直接执行「全局技能设定」、
+    「自定义」用「自定义序列」；走位、结算、重开期间不按技能。
     """
 
     def __init__(self, *args, **kwargs):
@@ -133,14 +183,36 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             "打几层": 0,
             "开机关重试次数": 3,
             "结算失败重试次数": 3,
+            "主控角色": DEFAULT_CHARACTER,
+            CUSTOM_SEQUENCE_KEY: DEFAULT_CUSTOM_SEQUENCE,
         })
+        self.config_type["主控角色"] = {
+            "type": "drop_down",
+            "options": list(CHARACTER_ROTATIONS) + [NO_CHARACTER, CUSTOM_CHARACTER],
+        }
         self.config_description.update({
             "打几层": "打几层，0 = 无限循环",
             "开机关重试次数": "走位/开机关连续失败几次后报错停止",
             "结算失败重试次数": "结算失败连续重试几次后报错停止",
+            "主控角色": "选角色就按它的手法放技能；选「无」不套手法、直接执行「全局技能设定」"
+                          "（走位和主控角色无关）",
+            CUSTOM_SEQUENCE_KEY: "选「自定义」时用：每一步写成「技能:等待秒数」，逗号分隔。"
+                                 "例：终结技:1, 战技:1",
         })
 
         self.skill_tick = self.create_skill_ticker()
+        # 主控角色手法：opening 起手序列 + spam/timed 或 steps 循环；
+        # 没套角色手法时继续用 skill_tick 那套「全局技能设定」
+        self.character_steps = None
+        self.character_spam = None
+        self.character_timed = ()
+        self.timed_next = []
+        self.lock_settle = LOCK_SETTLE
+        self.character_opening = ()
+        self.character_loops = False
+        self.opening_done = False
+        self.step_index = 0
+        self.sequence_done = False
         # 技能总闸（见 stop_skills / tick_skills）：默认开着，战斗判据连续消失超时，
         # 或者走到切层/结算/重开/走位这些窗口才关上。
         self.skills_stopped = False
@@ -200,7 +272,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     def init_all(self):
         self.load_char()
+        self.setup_character()
         self.skill_tick.reset()
+        self.reset_sequence_state()
         self.skills_stopped = False
         self.combat_seen_at = time.time()
         self.current_floor = 0
@@ -305,7 +379,16 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             # 每一局都是从零开始打，技能计时器必须重新武装：`reset()` 让下一次 tick 立刻触发。
             # 不重置的话长频率技能（比如「终结技 600 秒」）只会在第一层放，后面都在等剩余间隔。
             self.skill_tick.reset()
+            self.reset_sequence_state()
             self.reset_stage_detector()
+            # 角色手法里没有「锁定」动作的（止流）走位开战之后自动锁一次；
+            # 「无」/「自定义」保持原来的流程（不自动锁），要锁就在「自定义序列」里自己写「锁定」。
+            if (self.current_character() in CHARACTER_ROTATIONS
+                    and not self.plan_has_lock()):
+                self.log_info("走位结束，按锁定键（%s）锁定目标，稳 %.1f 秒"
+                              % (self.get_lock_key(), self.lock_settle))
+                self.press_hotkey(self.get_lock_key())
+                self.sleep(self.lock_settle)
         if not self.fight_until_result():
             # 30 秒没进战斗（含结算页被漏读、掉线）：已经重开了一局，退回第 1 层重新走位开机关
             self.mission_started = False
@@ -429,6 +512,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         以前这里是无条件 `skill_tick()`：结算页被漏读、加载/切层这些"没在打"的帧上照样按技能，
         那一下会被游戏缓冲到下一层（下一局）的开场 —— 人物还没走位先放一个技能，
         苏乙终结技这种长动作一锁，复位/向前走整段被吃掉。
+
+        总闸打开后交给「主控角色」手法：选了角色就按角色的 opening + 循环序列放，
+        选「无」/认不出的角色才退回「全局技能设定」的计时器。
         """
         if in_combat:
             self.combat_seen_at = time.time()
@@ -439,7 +525,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.stop_skills()
         if self.skills_stopped:
             return
-        self.skill_tick()
+        self.play_character_sequence()
 
     def stage_switch_pending(self):
         """读到了还没确认的新关号 —— 「文字先变、层后切」，这时候就该停技能了。
@@ -503,6 +589,215 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 in_combat = False
             self.tick_skills(in_combat)
             self.sleep(0.2)
+
+    # ------------------------------------------------------------------
+    # 主控角色手法（和「自动狩月人之阶」同一套写法）
+    # ------------------------------------------------------------------
+
+    def current_character(self):
+        return self.config.get("主控角色", DEFAULT_CHARACTER)
+
+    def plan_has_lock(self):
+        """这套手法里是不是自己带了「锁定」动作（带了就不在走位之后自动锁）。"""
+        actions = [action for action, _ in self.character_opening]
+        if self.character_steps:
+            actions += [action for action, _ in self.character_steps]
+        if self.character_spam:
+            actions.append(self.character_spam[0])
+        for _, group in self.character_timed:
+            actions += list(group)
+        return "锁定" in actions
+
+    def setup_character(self):
+        """按「主控角色」取技能序列；取不到就退回全局技能计时器。"""
+        name = self.current_character()
+        if name == CUSTOM_CHARACTER:
+            steps = self.parse_custom_steps()
+            if steps:
+                self.log_info("自定义技能序列: %s"
+                              % " -> ".join("%s后等%.1f秒" % step for step in steps))
+                self.character_steps = steps
+                self.character_spam = None
+                self.character_timed = ()
+                self.lock_settle = LOCK_SETTLE
+                self.character_opening = ()
+                self.character_loops = False
+                self.reset_sequence_state()
+                return
+            self.log_info("「%s」没解析出任何步骤，改用「%s」"
+                          % (CUSTOM_SEQUENCE_KEY, DEFAULT_CHARACTER))
+            name = DEFAULT_CHARACTER
+        if name == NO_CHARACTER:
+            self.log_info("主控角色「%s」：直接执行「全局技能设定」的技能配置" % NO_CHARACTER)
+            self.character_steps = None
+            self.character_spam = None
+            self.character_timed = ()
+            self.lock_settle = LOCK_SETTLE
+            self.character_opening = ()
+            self.character_loops = False
+            self.reset_sequence_state()
+            return
+        rotation = CHARACTER_ROTATIONS.get(name)
+        if rotation is None:
+            self.log_info("没有「%s」的技能手法，退回全局技能计时器" % name)
+            self.character_steps = None
+            self.character_spam = None
+            self.character_timed = ()
+            self.lock_settle = LOCK_SETTLE
+            self.character_opening = ()
+            self.character_loops = False
+        else:
+            self.character_steps = rotation.get("steps")
+            spam = rotation.get("spam")
+            # spam 可以写 "普攻"（一直按、不加额外间隔），也可以写 (动作, 间隔秒数)
+            self.character_spam = (spam, 0.0) if isinstance(spam, str) else spam
+            self.character_timed = rotation.get("timed") or ()
+            self.lock_settle = float(rotation.get("lock_settle", LOCK_SETTLE))
+            self.character_opening = rotation.get("opening") or ()
+            self.character_loops = bool(rotation.get("loop", False))
+        self.reset_sequence_state()
+
+    def parse_custom_steps(self):
+        """把「自定义序列」解析成 ((动作, 等待秒数), ...)；解析不出任何一步就返回空。
+
+        格式：每一步用中英文逗号、分号、顿号或换行分隔，写成「技能」或「技能:等待秒数」。
+        技能名写「战技」按短按处理，「长按战技」按住 COMBAT_LONG_PRESS 秒。
+        """
+        raw = str(self.config.get(CUSTOM_SEQUENCE_KEY, DEFAULT_CUSTOM_SEQUENCE) or "")
+        steps = []
+        for part in re.split(r"[,;，；、\n\r]+", raw):
+            part = part.strip()
+            if not part:
+                continue
+            action, _, wait_text = part.partition(":")
+            action = CUSTOM_ACTIONS.get(action.strip())
+            if action is None:
+                self.log_info("自定义序列第 %d 步技能名不认识，已跳过: %s"
+                              % (len(steps) + 1, part))
+                continue
+            try:
+                wait = float(wait_text) if wait_text.strip() else 1.0
+            except ValueError:
+                wait = 1.0
+            steps.append((action, max(0.0, wait)))
+        return tuple(steps)
+
+    def reset_sequence_state(self):
+        """这一局的技能序列还没放（开场技也还没放）。"""
+        self.sequence_done = False
+        self.opening_done = False
+        self.step_index = 0
+        self.timed_next = [0.0] * len(self.character_timed)
+
+    def play_character_sequence(self):
+        """按「主控角色」的手法放技能：锁定目标之后才开始。
+
+        opening（可选）：这一局开打后先放一遍，只放一次（止流的起手序列就是这条）。
+        spam + timed（可选）：按真实时间跑的循环 —— 一直按 spam、每隔 N 秒放一组 timed。
+        steps + loop=True：一直循环 steps；loop=False：steps 整串放一遍就停。
+        """
+        if (self.character_steps is None and self.character_spam is None
+                and not self.character_timed):
+            # 没有角色手法（「无」或认不出的名字）：退回全局技能计时器
+            self.skill_tick()
+            return
+
+        if not self.opening_done:
+            self.opening_done = True
+            if self.character_opening:
+                self.log_info("开场技能（只放一次）: %s" % self.describe_steps(self.character_opening))
+                for action, wait in self.character_opening:
+                    self.release_character_action(action)
+                    self.sleep(wait)
+
+        if self.character_spam is not None or self.character_timed:
+            self.play_timed_rotation()
+            return
+
+        if not self.character_loops:
+            if self.sequence_done:
+                return
+            self.sequence_done = True
+            self.log_info("执行「%s」技能序列（放一遍）: %s"
+                          % (self.current_character(), self.describe_steps()))
+            for action, wait in self.character_steps:
+                self.release_character_action(action)
+                self.sleep(wait)
+            return
+
+        if not self.sequence_done:
+            self.sequence_done = True
+            self.log_info("开始循环「%s」技能手法: %s"
+                          % (self.current_character(), self.describe_steps()))
+        action, wait = self.character_steps[self.step_index % len(self.character_steps)]
+        self.step_index += 1
+        self.log_info("循环技能第 %d 步: %s" % (self.step_index, action))
+        self.release_character_action(action)
+        self.sleep(wait)
+
+    def play_timed_rotation(self):
+        """按真实时间放技能（spam + timed）：一次调用最多做一件事。
+
+        先看有没有到点的 timed 组（到了就把这一组连着按完、再安排下一次），没有就按一下 spam。
+        止流那套「每隔 1.5 秒放一次终结技」就是这种 —— 按真实时间算，
+        不受主循环一轮多久影响。
+        """
+        now = time.time()
+        for index, (interval, actions) in enumerate(self.character_timed):
+            if now >= self.timed_next[index]:
+                self.timed_next[index] = now + interval
+                self.log_info("定时技能（每 %.1f 秒）: %s"
+                              % (interval, " + ".join(actions)))
+                for action in actions:
+                    self.release_character_action(action)
+                    self.sleep(TIMED_BURST_GAP)
+                return
+        if self.character_spam is None:
+            self.sleep(0.05)
+            return
+        action, gap = self.character_spam
+        self.release_character_action(action)
+        if gap > 0:
+            self.sleep(gap)      # 没写间隔就是"一直按"，节奏由主循环决定
+
+    def describe_steps(self, steps=None):
+        steps = self.character_steps if steps is None else steps
+        return " -> ".join("%s后等%.1f秒" % (action, wait) for action, wait in steps)
+
+    def release_character_action(self, action):
+        """放一次角色序列里的动作。
+
+        直接按键，不走角色对象；键值一律取「游戏快捷键设置」里的战技 / 终结技 / 魔灵支援，
+        普攻取「普攻键」（默认鼠标左键），所以游戏里改过键，只要 App 里这份设置跟着改就一致。
+        """
+        if action == "长按战技":
+            self.log_info("放技能: 长按战技（键 %s，按住 %.1f 秒）"
+                          % (self.get_combat_key(), COMBAT_LONG_PRESS))
+            self.send_key(self.get_combat_key(), down_time=COMBAT_LONG_PRESS)
+        elif action == "短按战技":
+            self.log_info("放技能: 短按战技（键 %s）" % self.get_combat_key())
+            self.send_key(self.get_combat_key())
+        elif action == "终结技":
+            self.log_info("放技能: 终结技（键 %s）" % self.get_ultimate_key())
+            self.send_key(self.get_ultimate_key())
+        elif action == "魔灵支援":
+            self.log_info("放技能: 魔灵支援（键 %s）" % self.get_geniemon_key())
+            self.send_key(self.get_geniemon_key())
+        elif action == "普攻":
+            self.log_info("放技能: 普攻（键 %s）" % self.get_normal_attack_key())
+            self.press_hotkey(self.get_normal_attack_key())
+        elif action == "锁定":
+            self.log_info("锁定目标（键 %s）" % self.get_lock_key())
+            self.press_hotkey(self.get_lock_key())
+        elif action == "重击":
+            self.log_info("放技能: 重击（按住 %.1f 秒）" % HEAVY_ATTACK_HOLD)
+            self.mouse_down()
+            try:
+                self.sleep(HEAVY_ATTACK_HOLD)
+            finally:
+                self.mouse_up()
+        else:
+            raise ValueError("未知技能动作: %s" % action)
 
     # ------------------------------------------------------------------
     # 切层（关号变了）
