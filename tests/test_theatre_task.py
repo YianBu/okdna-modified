@@ -323,6 +323,31 @@ class TestTheatreTask(TaskTestCase):
             for name, value in original.items():
                 setattr(task, name, value)
 
+    def test_result_screen_reads_the_act_number(self):
+        """结算页右上角「第 X 幕」要读得出来：胜页和败页都有这一行。"""
+        for shot in ('theatre_result_win.png', 'theatre_result_fail.png'):
+            self.set_image(IMAGES + shot)
+            self.assertEqual(self.task.read_act_number(), 13, shot)
+
+    def test_report_act_progress_writes_log_and_info(self):
+        """点「前往/再次挑战」之前，把「已打到第 X 幕」写进日志和任务信息栏。"""
+        task = self.task
+        original = {name: getattr(task, name) for name in
+                    ('read_act_number', 'info_set', 'log_info', 'sleep')}
+        info, logs = {}, []
+        try:
+            task.read_act_number = lambda: 212
+            task.info_set = lambda key, value: info.__setitem__(key, value)
+            task.log_info = lambda message, *args, **kwargs: logs.append(message)
+            task.sleep = lambda seconds: None
+            task.report_act_progress()
+            self.assertEqual(info, {'已打到': '第212幕'})
+            self.assertEqual(logs, ['已打到第212幕'])
+            self.assertEqual(task.current_act, 212)
+        finally:
+            for name, value in original.items():
+                setattr(task, name, value)
+
     def test_result_click_stops_skills_first(self):
         """点「前往」进下一层之前先把技能停掉：这一下点击不能跟着一个刚按出去的技能进下一局。
 

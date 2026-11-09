@@ -769,6 +769,9 @@ msgstr ""
 msgid "主控角色"
 msgstr ""
 
+msgid "已打到"
+msgstr ""
+
 msgid "选角色就按它的手法放技能；选「无」不套手法、直接执行「全局技能设定」（走位和主控角色无关）"
 msgstr ""
 

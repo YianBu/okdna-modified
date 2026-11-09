@@ -76,6 +76,10 @@ SKILL_STOP_DELAY = 2.0
 # 只拿 `theatre_stage` 的标注框当 OCR 区域，**不做模板匹配**：那行字是游戏文本，
 # 六种语言各不相同，模板匹配天生不通用。
 STAGE_TEXT = 'theatre_stage'
+# 结算页右上角的幕数：「不朽剧目/第212幕/勇者征程」那一行（Defs.SCREEN_BOX 里的框）。
+ACT_TEXT_BOX = 'THEATRE_ACT_TEXT'
+# OCR 可能把「第212幕」和旁边的字切碎，先拼起来再找数字。
+ACT_NUMBER_RE = re.compile(r'第\s*(\d+)\s*幕')
 # 主循环 0.2 秒一轮，每这么多秒读一次关号
 STAGE_OCR_INTERVAL = 1.0
 # 切层时"文字先变、层后切"，中间会有半截读数，所以新关号要连续读到这么多次才确认
@@ -216,6 +220,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         # 云游戏实拍帧糊、模板分低，给足重试轮次
         self.action_timeout = 20
         self.current_floor = 0
+        self.current_act = None
         self.interact_failures = 0
         self.no_combat_failures = 0
         self.result_failures = 0
@@ -864,6 +869,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         点之前先把技能停掉：结算页被漏读时技能还在按，那一下会跟着点击一起被带进下一层的开场，
         人物还没走位先放一个技能。
         """
+        # 「开始下一把之前」先记一下打到第几幕：结算页右上角有「第 X 幕」，
+        # 写到日志和任务信息栏里，方便看进度。
+        self.report_act_progress()
         self.mission_started = False
         self.stop_skills('结算页')
         if self.find_one(RESULT_WIN):
@@ -886,6 +894,34 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.click_ui_coord(COORD.THEATRE_RESULT_RETRY, name=RESULT_RETRY, after_sleep=1)
         self.wait_left_result()
         return False
+
+    def read_act_number(self):
+        """读结算页右上角的「第 X 幕」；读不到返回 None。"""
+        texts = self.ocr(box=self.screen_box(ACT_TEXT_BOX))
+        merged = "".join(text.name.replace(" ", "") for text in texts)
+        match = ACT_NUMBER_RE.search(merged)
+        if match is None:
+            return None
+        return int(match.group(1))
+
+    def report_act_progress(self):
+        """点「前往/再次挑战」之前读一次幕数，写进日志和任务信息栏。
+
+        云游戏结算页刚出来时文字可能还没渲染完，读不到就短重试几次；
+        真的读不到也不影响点按钮，只记一条 debug 日志。
+        """
+        act = None
+        for _ in range(3):
+            act = self.read_act_number()
+            if act is not None:
+                break
+            self.sleep(0.2)
+        if act is None:
+            self.log_debug("结算页没读到幕数")
+            return
+        self.current_act = act
+        self.info_set("已打到", "第%d幕" % act)
+        self.log_info("已打到第%d幕" % act)
 
     def wait_left_result(self, time_out=LOAD_TIME_OUT):
         """点了「前往」/「再次挑战」之后等离开结算页，免得下一轮又点一次。"""
