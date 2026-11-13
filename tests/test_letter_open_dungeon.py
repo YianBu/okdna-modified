@@ -72,6 +72,8 @@ class TestLetterOpenDungeon(TaskTestCase):
 
     def setUp(self):
         self._saved = {name: getattr(self.task, name) for name in self._PATCHED}
+        # 判图重试会取新帧（detect_current_map_stable）；单测没有真实画面，别让它等抓帧超时
+        self.task.next_frame = lambda *args, **kwargs: None
 
     def tearDown(self):
         for name, value in self._saved.items():
@@ -291,32 +293,48 @@ class TestLetterOpenDungeon(TaskTestCase):
         self.assertEqual(action_for_map('扼守直走'), 'execute_defence_straight')
 
     def test_exploration_high_runs_frozen_sequence(self):
-        """探险高台的实测序列已固化进代码：w6.0 -> 等0.3 -> a3.1 -> w1.3 -> f0.5 -> 等1.0 -> f0.5。"""
+        """探险高台按 1-3.json 精修：w2.982（含闪避）-> a3.155 -> w0.747 -> f。"""
         events = []
         self.task.log_info = lambda msg, **kw: events.append(('log', msg))
         self.task.send_key = lambda key, **kw: events.append(('key', key, kw.get('down_time')))
+        self.task.send_key_down = lambda key: events.append(('down', key))
+        self.task.send_key_up = lambda key: events.append(('up', key))
         self.task.sleep = lambda seconds: events.append(('sleep', seconds))
         self.task.move_mouse_relative = lambda dx, dy, **kw: events.append(('mouse', dx, dy))
         self.task.solve_exploration_mechanism = lambda: events.append(('solve',))
+        self.task.get_interact_key = lambda: 'f'
+        self.task.get_dodge_key = lambda: 'lshift'
         self.task.execute_exploration_high()
         self.assertEqual(events[0], ('log', '[探险高台] 开始走位'), '日志带 [探险高台] 前缀')
         self.assertEqual(events[1:], [
-            ('key', 'w', 6.0), ('sleep', 0.3), ('key', 'a', 3.1), ('key', 'w', 1.3),
-            ('key', 'f', 0.5), ('sleep', 1), ('solve',),
+            ('sleep', 1.0), ('down', 'lalt'), ('sleep', 0.1), ('down', 'w'), ('sleep', 0.297),
+            ('down', 'lshift'), ('sleep', 0.221), ('up', 'lshift'), ('sleep', 2.464),
+            ('up', 'w'), ('sleep', 0.630), ('down', 'a'), ('sleep', 3.155), ('up', 'a'),
+            ('sleep', 0.595), ('down', 'w'), ('sleep', 0.747), ('up', 'w'), ('sleep', 1.151),
+            ('solve',),
+            ('up', 'w'), ('up', 'a'), ('up', 'lshift'), ('up', 'space'), ('up', 'lalt'),
         ])
 
     def test_exploration_ground_runs_frozen_sequence(self):
-        """探险平地的实测序列已固化：w4.0 -> 空格0.5 -> 等0.1 -> 空格0.5 -> w4.6 -> a0.5 -> f0.5 -> 等1 -> f0.5。"""
+        """探险平地：3-2 的移动段 + 高台 Alt/W 起手；按住 Alt 跳不起来，去掉两次空格。"""
         events = []
         self.task.log_info = lambda msg, **kw: events.append(('log', msg))
         self.task.send_key = lambda key, **kw: events.append(('key', key, kw.get('down_time')))
+        self.task.send_key_down = lambda key: events.append(('down', key))
+        self.task.send_key_up = lambda key: events.append(('up', key))
         self.task.sleep = lambda seconds: events.append(('sleep', seconds))
         self.task.solve_exploration_mechanism = lambda: events.append(('solve',))
+        self.task.get_interact_key = lambda: 'f'
+        self.task.get_dodge_key = lambda: 'lshift'
         self.task.execute_exploration_ground()
         self.assertEqual(events[0], ('log', '[探险平地] 开始走位'))
         self.assertEqual(events[1:], [
-            ('key', 'w', 4.0), ('key', 'space', 0.5), ('sleep', 0.1), ('key', 'space', 0.5),
-            ('key', 'w', 4.6), ('key', 'a', 0.5), ('key', 'f', 0.5), ('sleep', 1), ('solve',),
+            ('sleep', 1.0), ('down', 'lalt'), ('sleep', 0.1), ('down', 'w'),
+            ('sleep', 0.569), ('down', 'lshift'),
+            ('sleep', 1.829), ('up', 'lshift'), ('sleep', 2.724), ('up', 'w'),
+            ('sleep', 1.013), ('down', 'a'), ('sleep', 0.492), ('up', 'a'),
+            ('sleep', 0.638), ('solve',),
+            ('up', 'w'), ('up', 'a'), ('up', 'lshift'), ('up', 'lalt'),
         ])
 
     def test_solve_exploration_mechanism_presses_f_until_combat(self):
@@ -362,7 +380,7 @@ class TestLetterOpenDungeon(TaskTestCase):
         self.assertEqual(events[1:], [('key', 'a', 0.2), ('hold_w',)])
 
     def test_hold_w_until_combat_extra_one_second_and_release(self):
-        """照「自动防御」：开战后只多走 1 秒，结束把移动键/闪避键全松开。"""
+        """照「自动扼守/无尽」：开战后只多走 1 秒，结束把移动键/闪避键全松开。"""
         import src.tasks.fullauto.DungeonActionMixin as mixin
         saved_time = mixin.time
         clock = {'t': 0.0}

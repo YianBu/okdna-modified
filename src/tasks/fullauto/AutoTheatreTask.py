@@ -110,6 +110,9 @@ STAGE_PENDING_HOLD = 8.0
 #   steps:   ((动作, 放完之后等几秒), ...)，动作取值沿用「全局技能设定」那套
 #            （短按战技 / 长按战技 / 终结技 / 魔灵支援 / 普攻 / 重击）
 #   loop:    True  = steps 一直循环放；False = steps 整串放一遍就停
+# opening 可以单独使用：只放起手、不配循环就整局只放这一遍（伊薇）。
+# reset_on_stage_switch: 可选，默认 True。切层后是否重新从 opening 开始；
+#                         False = 整局只在开局放一次，切层后不再释放任何技能（伊薇）。
 # 走位和主控角色无关（所有角色共用上面那段录制时序），角色之间只差这张表。
 CHARACTER_ROTATIONS = {
     # 止流：起手序列 = 长按战技 -> 短按战技 -> 终结技 ->（等 4 秒）-> 短按战技 -> 短按战技
@@ -118,6 +121,8 @@ CHARACTER_ROTATIONS = {
     "止流": {"opening": (("长按战技", 1.0), ("短按战技", 1.0), ("终结技", 4.0),
                          ("短按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0)),
              "timed": ((1.4, ("终结技",)),)},
+    # 伊薇：整局开局只放一次终结技，之后（包括切层后）都不再释放技能。
+    "伊薇": {"opening": (("终结技", 1.0),), "reset_on_stage_switch": False},
 }
 
 # 「无」：不套角色手法，直接执行「全局技能设定」的技能配置
@@ -163,8 +168,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     技能：只在目标栏菱形变红（真在打）期间释放。切层、结算、重开、走位之前都会关掉技能总闸
     （见 `stop_skills`），免得按出去的技能被游戏缓冲到下一层（下一局）的开场、把走位吃掉。
     技能按「主控角色」走：止流按它的手法（长按战技、短按战技、终结技，第一次终结技后等
-    4 秒，再短按战技、短按战技、终结技，其余间隔 1 秒；之后每 1.4 秒放一次终结技）、
-    「无」直接执行「全局技能设定」、「自定义」用「自定义序列」；走位、结算、重开期间不按技能。
+    4 秒，再短按战技、短按战技、终结技，其余间隔 1 秒；之后每 1.4 秒放一次终结技）；
+    伊薇只在整局开局放一次终结技，切层后也不再释放；「无」直接执行「全局技能设定」、「自定义」用
+    「自定义序列」；走位、结算、重开期间不按技能。
     """
 
     def __init__(self, *args, **kwargs):
@@ -210,6 +216,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.timed_next = []
         self.character_opening = ()
         self.character_loops = False
+        self.character_reset_on_stage_switch = True
         self.opening_done = False
         self.step_index = 0
         self.sequence_done = False
@@ -578,8 +585,9 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 self.sleep(LAYER_SWITCH_SETTLE)
                 self.apply_afk_mode()
                 self.reset_stage_detector()
-                # 切层之后重新从起手序列开始：新一层是新的开打，opening 要再放一遍。
-                self.reset_sequence_state()
+                # 切层后按角色配置决定是否重放起手：止流重放；伊薇整局只放一次，切层后不再按技能。
+                if self.character_reset_on_stage_switch:
+                    self.reset_sequence_state()
                 # 移动刚做完这一轮不按技能：等下一轮重新确认在战斗中再说
                 in_combat = False
             self.tick_skills(in_combat)
@@ -605,6 +613,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 self.character_timed = ()
                 self.character_opening = ()
                 self.character_loops = False
+                self.character_reset_on_stage_switch = True
                 self.reset_sequence_state()
                 return
             self.log_info("「%s」没解析出任何步骤，改用「%s」"
@@ -617,6 +626,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.character_timed = ()
             self.character_opening = ()
             self.character_loops = False
+            self.character_reset_on_stage_switch = True
             self.reset_sequence_state()
             return
         rotation = CHARACTER_ROTATIONS.get(name)
@@ -627,6 +637,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.character_timed = ()
             self.character_opening = ()
             self.character_loops = False
+            self.character_reset_on_stage_switch = True
         else:
             self.character_steps = rotation.get("steps")
             spam = rotation.get("spam")
@@ -635,6 +646,8 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.character_timed = rotation.get("timed") or ()
             self.character_opening = rotation.get("opening") or ()
             self.character_loops = bool(rotation.get("loop", False))
+            self.character_reset_on_stage_switch = bool(
+                rotation.get("reset_on_stage_switch", True))
         self.reset_sequence_state()
 
     def parse_custom_steps(self):
@@ -673,11 +686,13 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         """按「主控角色」的手法放技能：确认开打之后才开始。
 
         opening（可选）：这一局开打后先放一遍，只放一次（止流的起手序列就是这条）。
+        只配 opening、不配循环时，放完这一遍就停；伊薇还把 reset_on_stage_switch 关掉，
+        整局只在开局放一次，切层后不再释放。
         spam + timed（可选）：按真实时间跑的循环 —— 一直按 spam、每隔 N 秒放一组 timed。
         steps + loop=True：一直循环 steps；loop=False：steps 整串放一遍就停。
         """
         if (self.character_steps is None and self.character_spam is None
-                and not self.character_timed):
+                and not self.character_timed and not self.character_opening):
             # 没有角色手法（「无」或认不出的名字）：退回全局技能计时器
             self.skill_tick()
             return
@@ -692,6 +707,10 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
         if self.character_spam is not None or self.character_timed:
             self.play_timed_rotation()
+            return
+
+        if self.character_steps is None:
+            # 只有 opening 的手法（伊薇）：起手放完就停，不进入循环。
             return
 
         if not self.character_loops:

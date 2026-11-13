@@ -207,9 +207,10 @@ config = {
         ["src.tasks.config.CommissionConfig", "CommissionConfig"],
         ["src.tasks.config.CommissionSkillConfig", "CommissionSkillConfig"],
         # 全自动（日常）
-        ["src.tasks.fullauto.Auto65ArtifactTask_Fast", "Auto65ArtifactTask_Fast"],
         ["src.tasks.AutoExpulsion", "AutoExpulsion"],
+        ["src.tasks.fullauto.Auto65ArtifactTask_Fast", "Auto65ArtifactTask_Fast"],
         ["src.tasks.fullauto.AutoExploration_Fast", "AutoExploration_Fast"],
+        ["src.tasks.fullauto.AutoMediationTask_Fast", "AutoMediationTask_Fast"],
         # 全自动（活动）
         ["src.tasks.fullauto.AutoMijinTask", "AutoMijinTask"],
         ["src.tasks.fullauto.AutoLetterOpenTask", "AutoLetterOpenTask"],
@@ -226,6 +227,7 @@ config = {
         ["src.tasks.AutoExcavation", "AutoExcavation"],
         ["src.tasks.AutoHedge", "AutoHedge"],
         # 测试
+        ["src.tasks.fullauto.AutoRecordTask", "AutoRecordTask"],
         ["src.tasks.fullauto.AutoDungeonActionTestTask", "AutoDungeonActionTestTask"],
         ["src.tasks.fullauto.AutoActionLogicScriptTask", "AutoActionLogicScriptTask"],
         ["src.tasks.fullauto.ImportTask", "ImportTask"],

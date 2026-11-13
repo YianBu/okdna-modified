@@ -23,12 +23,14 @@ class TestExplorationFastMaps(TaskTestCase):
     task_class = AutoExploration_Fast
     config = config
 
-    _PATCHED = ('config', 'detect_current_map', 'run_dungeon_action', 'sleep', 'log_info')
+    _PATCHED = ('config', 'detect_current_map', 'run_dungeon_action', 'sleep', 'log_info',
+                'next_frame')
 
     def setUp(self):
         self._saved = {name: getattr(self.task, name) for name in self._PATCHED}
         self.dispatched = []
         self.task.sleep = lambda seconds=0: None
+        self.task.next_frame = lambda *args, **kwargs: None
         self.task.log_info = lambda *a, **k: None
         self.task.run_dungeon_action = lambda name: self.dispatched.append(name) is None
 

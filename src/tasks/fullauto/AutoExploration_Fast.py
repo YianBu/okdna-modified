@@ -98,10 +98,11 @@ class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, 
         """
         self.sleep(delay)
         map_selection = self.config.get("地图选择", [])
-        current_map = self.detect_current_map(MODE_EXPLORATION)
+        current_map = self.detect_current_map_stable(MODE_EXPLORATION)
         if current_map is None:
             current_map = default_map_for_mode(MODE_EXPLORATION)
-            self.log_info(f"未识别到地图，改用默认：{current_map}")
+            self.log_info(f"未识别到地图，先按默认「{current_map}」走；"
+                          "若实际不是这张图，请把上面这条日志和 map_detect_fail 截图发回")
         if len(map_selection) != 0 and current_map not in map_selection:
             raise MapDetectionError(f"当前地图[{current_map}]不匹配选择的地图{map_selection}")
         self.log_info(f"识别到地图类型：{current_map}，开始执行移动逻辑")

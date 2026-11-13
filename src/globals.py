@@ -27,6 +27,7 @@ DoubleSpinBox.__init__ = _new_init
 class Globals(QObject):
     clicked = Signal(int, int, object, bool)
     pressed = Signal(object)
+    released = Signal(object)
 
     def __init__(self, exit_event):
         super().__init__()
@@ -52,7 +53,8 @@ class Globals(QObject):
             self.pynput_mouse = mouse.Listener(on_click=self.on_click)
             self.pynput_mouse.start()
         if self.pynput_keyboard is None:
-            self.pynput_keyboard = keyboard.Listener(on_press=self.on_press)
+            self.pynput_keyboard = keyboard.Listener(on_press=self.on_press,
+                                                     on_release=self.on_release)
             self.pynput_keyboard.start()
 
     def reset_pynput(self):
@@ -69,6 +71,9 @@ class Globals(QObject):
     def on_press(self, key):
         self.pressed.emit(key)
         self.handle_task_hotkey(key)
+
+    def on_release(self, key):
+        self.released.emit(key)
 
     def hotkey_target_task(self):
         """快捷启动键指向的任务实例（缓存；找不到就返回 None）。"""

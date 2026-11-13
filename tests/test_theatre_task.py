@@ -329,6 +329,34 @@ class TestTheatreTask(TaskTestCase):
             self.set_image(IMAGES + shot)
             self.assertEqual(self.task.read_act_number(), 13, shot)
 
+    def test_yiwei_plays_the_ultimate_only_once(self):
+        """伊薇只有 opening：整局开局放一次终结技，切层后也不再释放任何技能。"""
+        task = self.task
+        original = {name: getattr(task, name) for name in
+                    ('config', 'release_character_action', 'sleep', 'skill_tick', 'log_info')}
+        actions = []
+        try:
+            task.config = {'主控角色': '伊薇'}
+            task.release_character_action = lambda action: actions.append(action)
+            task.sleep = lambda seconds: None
+            task.skill_tick = lambda: actions.append('global')
+            task.log_info = lambda *args, **kwargs: None
+            task.setup_character()
+            self.assertEqual(task.character_opening, (('终结技', 1.0),))
+            self.assertFalse(task.character_reset_on_stage_switch,
+                             '伊薇切层后不重放起手')
+            task.play_character_sequence()
+            self.assertEqual(actions, ['终结技'], '开局只放一次终结技，不走全局技能计时器')
+            actions.clear()
+            task.play_character_sequence()
+            self.assertEqual(actions, [], '起手放完之后不再释放技能')
+            task.reset_sequence_state()
+            task.play_character_sequence()
+            self.assertEqual(actions, ['终结技'], '新的一局开局会重新放一次起手')
+        finally:
+            for name, value in original.items():
+                setattr(task, name, value)
+
     def test_report_act_progress_writes_log_and_info(self):
         """点「前往/再次挑战」之前，把「已打到第 X 幕」写进日志和任务信息栏。"""
         task = self.task
@@ -344,6 +372,42 @@ class TestTheatreTask(TaskTestCase):
             self.assertEqual(info, {'已打到': '第212幕'})
             self.assertEqual(logs, ['已打到第212幕'])
             self.assertEqual(task.current_act, 212)
+        finally:
+            for name, value in original.items():
+                setattr(task, name, value)
+
+    def test_yiwei_does_not_reset_or_cast_on_stage_switch(self):
+        """伊薇切层后既不重放起手，也不放任何技能。"""
+        task = self.task
+        original = {name: getattr(task, name) for name in
+                    ('config', 'find_one', 'is_in_combat', 'read_stage_text',
+                     'apply_afk_mode', 'release_character_action', 'sleep',
+                     'log_info', 'log_warning', 'wait_until')}
+        texts = ['第一试炼', '第二试炼', '第二试炼', '第二试炼']
+        actions, afk = [], []
+        try:
+            task.config = {'主控角色': '伊薇', '开机关重试次数': 3}
+            task.setup_character()
+            task.opening_done = True
+            task.sequence_done = True
+            task.skills_stopped = False
+            task.combat_seen_at = 1000.0
+            task.reset_stage_detector()
+            task.find_one = lambda name, *args, **kwargs: (
+                'result' if not texts and name == RESULT_WIN else None)
+            task.is_in_combat = lambda: True
+            task.read_stage_text = lambda: texts.pop(0) if texts else None
+            task.apply_afk_mode = lambda: afk.append(1)
+            task.release_character_action = lambda action: actions.append(action)
+            task.sleep = lambda seconds: None
+            task.log_info = lambda *args, **kwargs: None
+            task.log_warning = lambda *args, **kwargs: None
+            task.wait_until = lambda *args, **kwargs: True
+
+            self.assertTrue(task.fight_until_result())
+            self.assertEqual(afk, [1], '切层后仍要按挂机模式处理一次角色位置')
+            self.assertEqual(actions, [], '伊薇切层后不该再按任何技能')
+            self.assertTrue(task.opening_done, '切层后不能把起手状态清掉')
         finally:
             for name, value in original.items():
                 setattr(task, name, value)

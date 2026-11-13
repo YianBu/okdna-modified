@@ -37,7 +37,7 @@ class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTas
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.icon = FluentIcon.FLAG
-        self.name = "自动防御"
+        self.name = "自动扼守/无尽"
         self.description = "全自动"
         self.group_name = "全自动（日常）"
         self.group_icon = FluentIcon.CALENDAR
@@ -92,10 +92,11 @@ class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTas
         """
         self.sleep(delay)
         map_selection = self.config.get("地图选择", [])
-        current_map = self.detect_current_map(MODE_DEFENCE)
+        current_map = self.detect_current_map_stable(MODE_DEFENCE)
         if current_map is None:
             current_map = default_map_for_mode(MODE_DEFENCE)
-            self.log_info(f"未识别到地图，改用默认：{current_map}")
+            self.log_info(f"未识别到地图，先按默认「{current_map}」走；"
+                          "若实际不是这张图，请把上面这条日志和 map_detect_fail 截图发回")
         if len(map_selection) != 0 and current_map not in map_selection:
             raise MapDetectionError(f"当前地图[{current_map}]不匹配选择的地图{map_selection}")
         self.log_info(f"识别到地图类型：{current_map}，开始执行移动逻辑")

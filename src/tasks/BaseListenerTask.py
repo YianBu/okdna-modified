@@ -28,6 +28,7 @@ class BaseListenerTask:
             logger.debug(f"{self.__class__.__name__} disconnect listener")
             og.my_app.clicked.disconnect(self.on_global_click)
             og.my_app.pressed.disconnect(self.on_global_press)
+            og.my_app.released.disconnect(self.on_global_release)
             self.connected = False
 
     def try_connect_listener(self):
@@ -35,12 +36,16 @@ class BaseListenerTask:
             logger.debug(f"{self.__class__.__name__} connect listener")
             og.my_app.clicked.connect(self.on_global_click)
             og.my_app.pressed.connect(self.on_global_press)
+            og.my_app.released.connect(self.on_global_release)
             self.connected = True
 
     def on_global_click(self, x, y, button, pressed):
         pass
 
     def on_global_press(self, key):
+        pass
+
+    def on_global_release(self, key):
         pass
 
     def normalize_hotkey(self, name: str):
