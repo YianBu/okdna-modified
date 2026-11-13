@@ -22,7 +22,7 @@
   排查过程、踩过的坑、设计取舍写进提交信息；那些留在与用户的对话里，需要留档就写进代码注释
   或本文件。
 - 本仓库的版本号（`v1.x`）与上游完全独立，不要拿上游的 tag 做比较或参考。本仓库自己的发布
-  序列到目前是 `v1.0.1`…`v1.2.5`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
+  序列到目前是 `v1.0.1`…`v1.2.6`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
   本地 tag 已清理过，只剩本仓库自己的 `v1.x`；万一又看到上游 tag（换了机器、重新克隆等），
   别照它们编号，本地删掉即可。
 - 版本号**逢 10 进 1**：`v1.0.9` 之后是 `v1.1.0`（不是 `v1.0.10`），`v1.1.9` 之后是 `v1.2.0`，
@@ -30,7 +30,7 @@
   步骤，Release 被跳过），后来作为新版本正式发出，现在已经在用。
 - **「传云」的含义**：用户说「传云」（或「传云 git」「推送更新」）时，默认理解为「提交改动 ->
   本仓库版本号 +1 打 annotated tag -> 推送」：即 `git push mine master` 加
-  `git push mine <下一个版本号>`（当前下一个是 `v1.2.6`），让 CI 出 release 给 Launcher 用户。
+  `git push mine <下一个版本号>`（当前下一个是 `v1.2.7`），让 CI 出 release 给 Launcher 用户。
   推完把下一个版本号记住（再次「传云」时就再 +1）。**只推这一个 tag，绝不 `--tags`。**
 - **说「传云」时这一版已经实测过、是稳定版**：用户说「传云」时，不要再去跑测试、也不要回头质疑改动，直接提交 + 打 annotated tag + 推送就行。
 - 发布 = 打 `v*` tag 推到 `mine`：CI 按 tag 改写 `src/config.py` 的 version 并发布 release，
@@ -136,7 +136,7 @@
   `current_wave != -1` 当 in_combat，且 `wave_start_time` 只在 `current_wave` 变化时
   刷新。想把放技能也换成 `find_target_wave()` 判据时，必须连同波次计时一起改，否则
   `time.time() - wave_start_time` 会立刻超过「超时时间」，误判超时撤退。
-- 已知小缺口：`i18n/zh_CN/LC_MESSAGES/ok.po` 还没有任务名「自动防御」
+- 已知小缺口：`i18n/zh_CN/LC_MESSAGES/ok.po` 还没有任务名「自动扼守/无尽」
   （`Auto65ArtifactTask_Fast`）的 msgid（「自动扼守」「自动探险」已有），下次动文案时补上。
 
 ### 迷津任务（AutoMijinTask：整屏 OCR 判界面）
@@ -200,6 +200,33 @@
   `hunt_moon_restart_icon`/`boss_hp_bar` 和对应 png），`coco_annotations.json` 只追加、
   不挪旧条目。
 
+### 自动调停/老道（AutoMediationTask_Fast）
+
+- 继承 `AutoExpulsion` 的委托状态机：开始 / 委托手册 / 密函 / 结算 /「再次进行」都复用，
+  所以结算后自动重开下一局，一直循环到手动停止。
+- 进本后固定跑 4.json 的 F 之前移动段；Alt/W 起手参考自动探险：先稳 1 秒，
+  Alt 按住，100ms 后按 W；然后 W 2.653s（0.262s 后 Shift 按住 2.243s，Shift 松开后
+  再走 148ms），W 松开后
+  立刻松 Alt；
+  然后反复 F 解锁，左侧目标变成
+  「破坏“大烟花”的引信，阻止爆炸」就停（图1「破解机关，暴露…」不算）
+  （这是解锁完成的文字；「可前往撤离点」是打完柱子后的目标），再按终结技；再等
+  终结技后**文字判据优先**：目标变「可前往撤离点」（柱子打完）就直接算可用，不再等
+  图标颜色；文字读不到/超时才退回 `MEDIATION_EVAC_ICON` 绿色图标兜底。任一超时只报警告，
+  最后仍按流程使用魔灵支援（这一步不能跳过）。绿色阈值
+  0.3%，搜索框收窄到图标附近 (720,270)-(928,405)。变绿后延迟「撤离点延迟(秒)」
+  （默认 2 秒）按魔灵支援。
+  4.json 里固定两下 F 不再使用。每局只跑一次，`init_all` 时清标志。
+- 撤离点绿色判据：`Defs.SCREEN_BOX.MEDIATION_EVAC_ICON` + 亮绿 BGR 区间，实拍绿色
+  占比约 0.19%，阈值 0.1%；把图标涂灰后测试为 False。
+- 队伍备注：使用黎瑟 + 巧手 + 老道，可以带两个高伤 C 打柱子（只放在任务描述里，配置项已去掉）。
+- **局内处理每局只执行一次**：`do_run` 只在 `in_team()`、`_steps_done_this_mission` 为
+  false、且不在结算界面（`find_result_again_btn()` 为 false）时调用 `play_route_once()`；
+  跑完就只轮询 `handle_mission_interface()`。结算界面即使 `in_team()` 仍为 True 也不会
+  重跑开场；点「再次进行」返回 `Mission.START` 后 `init_all()` 清标志，新一局再跑一次。
+- 进本可控后先等「进本等待(秒)」（默认 2 秒）再开始；`do_run` 每局入口只走一次这个等待。
+- 和自动驱离一样，从「调停/老道」的开始界面启动；不自动在委托/密函列表里选任务。
+
 ### 自动开密函任务（AutoLetterOpenTask：驱离/探险/扼守三合一）
 
 - **结构**：`AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion)`。原来独立的「扼守探险
@@ -211,11 +238,17 @@
 - **判地图跟原版同款**：进本第一帧看 track_point（追踪点）图标落在哪个固定比例框
   （探险平地/探险高台/扼守斜走各一个框；**扼守直走不设框、当扼守的兜底**）。框是拿原版
   `track_point` 模板定的。
+- **判图必须重试，别单次判**：进本后 HUD/镜头要淡入一两秒，原来只睡 2 秒再匹配一次，
+  实测 19 次判图只中 5 次；没中就走 `default_map_for_mode`（探险 = 平地），于是高台被
+  当成平地。现在 `detect_current_map_stable` 在 10×0.5 秒内反复匹配，**每轮用
+  `next_frame()` 取新帧**（`self.frame` 是缓存帧，不取新帧等于反复看同一张图）；命中即停。
+  彻底失败才回默认，并打「每框最高分 / 全屏追踪点候选」日志 + `screenshots/map_detect_fail`
+  截图。改框时按这条日志里的实际坐标定，别凭记忆。
 - **走位每局一次，不是每波一次**：`_walked_this_mission` 标志控制；波次间「继续挑战」
   不能复位它，只有真正开新局才复位。
 - **探险机关 = F 交互后反复按 F 破解到开战**（`solve_exploration_mechanism`，参考自动
   沉浸式戏剧的做法）；「前进到开战」是按住 W 轮询开战判据、判到后再走 1 秒
-  （`hold_w_until_combat`，和自动防御共用）。
+  （`hold_w_until_combat`，和自动扼守/无尽共用）。
 - **游戏内「自动轮次」开关会干扰轮次计算**：进难度选择界面后、点「选择密函」前必须关掉
   （`ensure_auto_rounds_off`）。判据是开启时多出的「轮次x/99」行
   （`LETTER_AUTO_ROUNDS_STATE` 框）加标题行上移约 95px；开关在标题行**右侧**的滑块
@@ -249,5 +282,5 @@
     `mod/行动逻辑/*.json` 里自由填的 steps，用来**试新序列**；试好的序列再固化进
     `DungeonActionMixin` 的 `execute_*` 方法。正式逻辑**不读 json**，别把两者搞混。
 - **挂机模式在自动开密函里是死配置**：`move_on_begin` 被注入 external_movement
-  （`walk_to_aim`）时整段跳过挂机模式。自动防御（`Auto65ArtifactTask_Fast`）的
+  （`walk_to_aim`）时整段跳过挂机模式。自动扼守/无尽（`Auto65ArtifactTask_Fast`）的
   「挂机模式」同理失效，但自动扼守直接跑时仍生效，所以共享定义没删。
