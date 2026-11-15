@@ -1,12 +1,141 @@
 from PySide6.QtCore import QObject, Signal
 from pynput import mouse, keyboard
 import concurrent.futures
+import time
 from qfluentwidgets import DoubleSpinBox
 from PySide6.QtWidgets import QApplication
 from ok import Logger, og
-from threading import Event
+from threading import Event, Thread
 
 logger = Logger.get_logger(__name__)
+
+
+# --- 云游戏窗口分辨率 ---
+# ok 框架的 BrowserCaptureMethod 启动完 Edge 后，会把“当前实际窗口尺寸”写回
+# self._size；下次重开浏览器时又把这个实际尺寸当成目标尺寸。结果是云游戏窗口
+# 被手动缩小过一次以后，之后一直停在 1008x576，config.py 里的 browser.resolution
+# 看起来像没生效。这里每次启动浏览器前，把目标尺寸恢复成配置值。
+try:
+    from ok.device.capture_methods.browser import BrowserCaptureMethod
+
+    if not getattr(BrowserCaptureMethod, "_dna_configured_resolution_patch", False):
+        _original_start_browser = BrowserCaptureMethod.start_browser
+
+        def _start_browser_with_configured_resolution(self):
+            resolution = (self.config or {}).get("resolution")
+            if resolution:
+                target = (int(resolution[0]), int(resolution[1]))
+                self._dna_target_size = target
+                actual = tuple(self._size or (0, 0))
+                # 浏览器已经开着时 start_browser 会直接返回，不会走启动逻辑；
+                # 这里先把被手动缩小的窗口按差值补回去，再恢复目标尺寸。
+                if (self.page is not None and not self.page.is_closed()
+                        and self.hwnd and actual[0] > 10 and actual[1] > 10
+                        and actual != target):
+                    try:
+                        import win32gui
+                        from ok.util.window import resize_window
+                        rect = win32gui.GetWindowRect(self.hwnd)
+                        outer_w, outer_h = rect[2] - rect[0], rect[3] - rect[1]
+                        resize_window(self.hwnd,
+                                      outer_w + (target[0] - actual[0]),
+                                      outer_h + (target[1] - actual[1]))
+                    except Exception as e:
+                        logger.warning(f"云游戏窗口调整失败: {e}")
+                self._size = target
+            return _original_start_browser(self)
+
+        BrowserCaptureMethod.start_browser = _start_browser_with_configured_resolution
+        BrowserCaptureMethod._dna_configured_resolution_patch = True
+except Exception as e:
+    logger.warning(f"无法应用云游戏窗口分辨率补丁: {e}")
+
+
+class BrowserResolutionLock:
+    """持续把云游戏浏览器窗口锁在 config["browser"]["resolution"]。
+
+    只处理 BrowserCaptureMethod 自己的 Edge 窗口；最小化时不动，最大化时先还原
+    再改回目标尺寸。用户在运行中手动拖大小，下一轮检查会拉回来。
+    """
+
+    def __init__(self, interval=2.0, tolerance=2):
+        self.interval = interval
+        self.tolerance = tolerance
+        self._logged_target = None
+        self._stop_event = Event()
+        self._thread = Thread(target=self._run, daemon=True, name="BrowserResolutionLock")
+
+    def start(self):
+        self._thread.start()
+        logger.info(f"云游戏窗口分辨率锁定已启动：每 {self.interval:g} 秒检查一次")
+
+    def stop(self):
+        self._stop_event.set()
+        if self._thread.is_alive():
+            self._thread.join(timeout=1)
+
+    def _run(self):
+        while not self._stop_event.wait(self.interval):
+            try:
+                self._tick()
+            except Exception as e:
+                logger.debug(f"云游戏分辨率锁定检查失败: {e}")
+
+    def _tick(self):
+        from ok.device.capture_methods.browser import BrowserCaptureMethod
+        from ok.util.window import find_hwnd
+        import win32con
+        import win32gui
+
+        device_manager = getattr(og, "device_manager", None)
+        capture = getattr(device_manager, "capture_method", None)
+        if not isinstance(capture, BrowserCaptureMethod):
+            return
+        # 不在后台线程里碰 Playwright 的对象（page.is_closed 不是线程安全的）；
+        # hwnd 和 WGC 存在就说明浏览器窗口已经起来了。
+        if not capture.hwnd or not getattr(capture, "wgc_capture", None):
+            return
+        if not win32gui.IsWindow(capture.hwnd):
+            return
+
+        target = getattr(capture, "_dna_target_size", None)
+        if not target:
+            target = tuple((capture.config or {}).get("resolution") or ())
+        if len(target) != 2:
+            return
+        target = (int(target[0]), int(target[1]))
+        if target != self._logged_target:
+            self._logged_target = target
+            logger.info(f"云游戏窗口分辨率锁定目标: {target[0]}x{target[1]}")
+
+        hwnd = capture.hwnd
+        if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
+            return
+        if win32gui.IsZoomed(hwnd):
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            time.sleep(0.2)
+
+        # selected_hwnd 保证只量 BrowserCaptureMethod 自己那个 Edge 窗口，
+        # 不会误伤用户另外打开的浏览器窗口。
+        result = find_hwnd(None, ["chrome.exe", "msedge.exe", "chromium.exe"],
+                           target[0], target[1], selected_hwnd=hwnd)
+        if not result or not result[1]:
+            return
+        _, found_hwnd, _, _, _, real_w, real_h, _ = result
+        if found_hwnd != hwnd or real_w <= 10 or real_h <= 10:
+            return
+        if (abs(real_w - target[0]) <= self.tolerance
+                and abs(real_h - target[1]) <= self.tolerance):
+            return
+
+        rect = win32gui.GetWindowRect(hwnd)
+        outer_w, outer_h = rect[2] - rect[0], rect[3] - rect[1]
+        new_w = outer_w + (target[0] - real_w)
+        new_h = outer_h + (target[1] - real_h)
+        logger.info(f"云游戏窗口被改成了 {real_w}x{real_h}，锁回 {target[0]}x{target[1]}")
+        win32gui.SetWindowPos(hwnd, 0, 0, 0, new_w, new_h,
+                              win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
+                              | win32con.SWP_NOACTIVATE)
 
 # --- 猴子补丁 ---
 # 修改 DoubleSpinBox，使其默认拥有一个更大的最大值
@@ -41,9 +170,14 @@ class Globals(QObject):
         self.shared_frame = None
         exit_event.bind_stop(self)
         self.init_pynput()
+        self._browser_resolution_lock = BrowserResolutionLock()
+        self._browser_resolution_lock.start()
 
     def stop(self):
         logger.info("pynput stop")
+        if getattr(self, "_browser_resolution_lock", None):
+            self._browser_resolution_lock.stop()
+            self._browser_resolution_lock = None
         self.reset_pynput()
         self.shutdown_thread_pool_executor()
 

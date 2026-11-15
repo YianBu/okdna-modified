@@ -140,6 +140,8 @@ config = {
     },
     "browser": {
         "url": "https://dna.yingxiong.com/cloudgame/",
+        # 云游戏窗口内容区尺寸（不是屏幕分辨率）。必须保持 16:9，
+        # 且高度要留给 Edge 的标签栏/地址栏；1920x1080 屏幕用 1600x900 最稳。
         "resolution": (1600, 900),
         "nick": "云游戏(需要Win11并安装Edge)",
     },

@@ -10,18 +10,25 @@ from src.tasks.fullauto.DungeonActionMixin import (
     EXPLORATION_RUN_SETTLE_TIME,
 )
 
-DEFAULT_TIMEOUT = 180
-DEFAULT_SETTLE = 2.0
+DEFAULT_TIMEOUT = 90
+DEFAULT_SETTLE = 1.0
 
 # 4.json 的移动段（F 之前）；Alt/W 起手参考自动探险
 OPEN_W_BEFORE_SHIFT = 0.262
 OPEN_SHIFT_TIME = 2.243
 OPEN_AFTER_SHIFT = 0.148          # 0.048 + 100ms：W 多走一点，确保碰到开关
-# 撤离点绿色：取自实拍，只认亮绿。深色雪地/青绿场景不落在这个 BGR 区间。
-EVAC_GREEN = {"b": (90, 160), "g": (170, 230), "r": (40, 110)}
-EVAC_GREEN_THRESHOLD = 0.003
-EVAC_GREEN_TIMEOUT = 30
-DEFAULT_EVAC_DELAY = 2.0
+EVAC_READY_TIMEOUT = 30
+DEFAULT_EVAC_DELAY = 1.0
+
+# 退本前统一松开的键。云游戏里 Alt 按着时 ESC 会变成 Alt+Esc，菜单打不开。
+RELEASE_KEYS = (
+    "lalt", "ralt", "alt_l", "alt_r", "alt",
+    "lshift", "rshift", "shift", "shift_l", "shift_r",
+    "lcontrol", "rcontrol", "ctrl", "ctrl_l", "ctrl_r",
+    "control", "lctrl", "rctrl",
+    "w", "a", "s", "d", "space", "tab", "enter", "esc",
+    "1", "2", "3", "4", "f", "q", "e", "r",
+)
 # 图1「破解机关，暴露“大烟花”的引信」还在破解机关，不算解锁完成；
 # 图2「破坏“大烟花”的引信，阻止爆炸」才是解锁完成。
 # 「可前往撤离点」是打完柱子之后的目标，也不用于解锁判据。
@@ -39,14 +46,14 @@ class AutoMediationTask_Fast(AutoExpulsion):
     队伍备注：使用 黎瑟 + 巧手 + 老道。
 
     进本后：
-      1) 进本等待（默认 2 秒）；
+      1) 进本等待（默认 1 秒）；
       2) 开场 Alt/W 参考自动探险：先稳 1 秒，Alt 按住，100ms 后按 W；
          然后走 W 2.653s（0.262s 后 Shift 按住 2.243s，Shift 松开后再走 148ms），W 松开后
          立刻松 Alt；
       3) 反复 F 破解解锁；左侧目标变成「破坏“大烟花”的引信，阻止爆炸」就停，
          不再死等开战（「可前往撤离点」是打完柱子后的目标，不用于解锁判据）；
       4) 按终结技；
-      5) 等画面中央的撤离点图标变绿，变绿后延迟 2 秒按魔灵支援。
+      5) 文字确认「可前往撤离点」后延迟 1 秒按魔灵支援。
     4.json 里固定两下 F 不再使用；解锁改为反复 F + 目标文字 OCR。
 
     和自动驱离一样，从「调停/老道」的开始界面启动，不自动在委托列表里选任务。
@@ -67,8 +74,8 @@ class AutoMediationTask_Fast(AutoExpulsion):
         })
         self.config_description.update({
             "超时时间": "进本后超过这么久还没结束就放弃并重开",
-            "进本等待(秒)": "进本可控后先等这么久再开始开场移动；默认 2 秒",
-            "撤离点延迟(秒)": "撤离点图标变绿后，等这么久再按魔灵支援；默认 2 秒",
+            "进本等待(秒)": "进本可控后先等这么久再开始开场移动；默认 1 秒",
+            "撤离点延迟(秒)": "确认可前往撤离点后，等这么久再按魔灵支援；默认 1 秒",
         })
 
         # 走位固定，不需要自动驱离那套随机游走/挂机开局配置
@@ -76,7 +83,8 @@ class AutoMediationTask_Fast(AutoExpulsion):
             self.default_config.pop(key, None)
 
         self._steps_done_this_mission = False
-        self._last_evac_pct = None
+        self.session_count = 0
+        self._settlement_counted = False
 
     # ------------------------------------------------------------------
     # 固定开场路线
@@ -85,6 +93,7 @@ class AutoMediationTask_Fast(AutoExpulsion):
         if self._steps_done_this_mission:
             return
         self._steps_done_this_mission = True
+        self._settlement_counted = False
         try:
             wait = float(self.config.get("进本等待(秒)", DEFAULT_SETTLE))
         except (TypeError, ValueError):
@@ -111,7 +120,7 @@ class AutoMediationTask_Fast(AutoExpulsion):
             self.send_key_up("lalt")
             self.solve_unlock()
             self.use_ultimate()
-            self.wait_evac_green_then_geniemon()
+            self.wait_evac_ready_then_geniemon()
         finally:
             self.send_key_up("w")
             self.send_key_up("a")
@@ -156,27 +165,13 @@ class AutoMediationTask_Fast(AutoExpulsion):
         self.log_info("[自动调停/老道] 解锁后使用终结技")
         self.send_key(self.get_ultimate_key(), down_time=0.1)
 
-    def evac_icon_green(self):
-        """画面中央的撤离点图标是不是绿色；返回绿色像素占比是否过阈值。"""
-        box = self.screen_box("MEDIATION_EVAC_ICON")
-        pct = self.calculate_color_percentage(EVAC_GREEN, box)
-        if self._last_evac_pct is None or abs(pct - self._last_evac_pct) >= 0.02:
-            self._last_evac_pct = pct
-            self.info_set("撤离点绿色", f"{pct:.3f}")
-        return pct >= EVAC_GREEN_THRESHOLD
-
-    def wait_evac_green_then_geniemon(self):
-        # 文字判据优先：目标变「可前往撤离点」就直接算撤离点可用，不再等图标颜色；
-        # 只有文字读不到/超时才退回绿色图标兜底。
+    def wait_evac_ready_then_geniemon(self):
+        # 只看文字：目标变「可前往撤离点」= 柱子打完。文字超时也继续按流程使用。
         self.log_info("[自动调停/老道] 等待柱子打完…")
-        text_ok = self.wait_until(self.evac_ready_text, time_out=EVAC_GREEN_TIMEOUT,
+        text_ok = self.wait_until(self.evac_ready_text, time_out=EVAC_READY_TIMEOUT,
                                   raise_if_not_found=False)
         if not text_ok:
-            self.log_info("文字判据超时，改用撤离点图标变绿判据")
-            green_ok = self.wait_until(self.evac_icon_green, time_out=EVAC_GREEN_TIMEOUT,
-                                       raise_if_not_found=False)
-            if not green_ok:
-                self.log_info("撤离点图标未变绿，超时后仍按流程使用魔灵支援")
+            self.log_info("等待「可前往撤离点」超时，仍按流程使用魔灵支援")
         else:
             self.log_info("文字已确认可前往撤离点")
         try:
@@ -188,6 +183,36 @@ class AutoMediationTask_Fast(AutoExpulsion):
         self.log_info("[自动调停/老道] 使用魔灵支援")
         self.send_key(self.get_geniemon_key(), down_time=0.1)
 
+    def release_all_keys(self):
+        """松开所有可能按住的键；退本/ESC 前必须调用，避免 Alt+Esc。"""
+        self.fidget_params["hold_lalt"] = False
+        self.sleep(0.05)
+        keys = set(RELEASE_KEYS)
+        for getter in ("get_dodge_key", "get_interact_key", "get_combat_key",
+                       "get_ultimate_key", "get_geniemon_key", "get_spiral_dive_key"):
+            try:
+                key = getattr(self, getter)()
+                if key:
+                    keys.add(str(key))
+            except Exception:
+                pass
+        for key in keys:
+            try:
+                self.send_key_up(key)
+            except Exception:
+                pass
+        self.sleep(0.15)
+
+    def leave_mission_once(self):
+        # 每一步退本前都松键；ESC 不生效时 give_up_mission 会继续循环重试
+        self.release_all_keys()
+        return super().leave_mission_once()
+
+    def give_up_mission(self, timeout=0):
+        self.log_info("[自动调停/老道] 放弃前先松开所有按键")
+        self.release_all_keys()
+        return super().give_up_mission(timeout=timeout)
+
     # ------------------------------------------------------------------
     # 和 AutoExpulsion 状态机对接
     # ------------------------------------------------------------------
@@ -196,27 +221,65 @@ class AutoMediationTask_Fast(AutoExpulsion):
         self.init_all()
         self.load_char()
         self.count = 0
+        self.session_count = 0
+        self._settlement_counted = False
+        self.info_set("场次", 0)
+        mission_started_at = 0.0
         while True:
+            on_result = self.find_result_again_btn()
+            self.count_settlement(on_result)
             # 结算界面即使 in_team() 仍为 True，也不能重跑开场；先交给 handle_mission_interface
             if (self.in_team() and not self._steps_done_this_mission
-                    and not self.find_result_again_btn()):
+                    and not on_result):
                 self.log_info("[自动调停/老道] 局内处理")
+                mission_started_at = time.time()
                 self.play_route_once()
+                continue
+
+            # 进本后开始计时；满超时时间还没进结算就按 ESC 放弃并重开
+            if (self.in_team() and mission_started_at
+                    and not on_result
+                    and self.timeout_expired(mission_started_at)):
+                elapsed = time.time() - mission_started_at
+                self.log_info(f"[自动调停/老道] 任务超时 {elapsed:.0f} 秒，ESC重开")
+                self.give_up_mission()
+                mission_started_at = 0.0
                 continue
 
             status = self.handle_mission_interface(stop_func=self.stop_func)
             if status == Mission.START:
                 self.wait_until(self.in_team, time_out=30)
                 self.init_all()
+                mission_started_at = 0.0
             elif status == Mission.STOP:
                 pass
             elif status == Mission.CONTINUE:
                 pass
             self.sleep(0.1)
 
+    def count_settlement(self, on_result):
+        """进一次结算界面只加一场，防止同一屏反复计数。"""
+        if not on_result or self._settlement_counted:
+            return
+        self._settlement_counted = True
+        self.session_count += 1
+        self.info_set("场次", self.session_count)
+        self.log_info(f"[自动调停/老道] 完成第 {self.session_count} 场")
+
     def init_all(self):
         super().init_all()
         self._steps_done_this_mission = False
-        self._last_evac_pct = None
+
+    def timeout_seconds(self):
+        try:
+            return max(1.0, float(self.config.get("超时时间", DEFAULT_TIMEOUT)))
+        except (TypeError, ValueError):
+            return float(DEFAULT_TIMEOUT)
+
+    def timeout_expired(self, started_at, now=None):
+        if not started_at:
+            return False
+        now = time.time() if now is None else now
+        return now - started_at >= self.timeout_seconds()
 
 
