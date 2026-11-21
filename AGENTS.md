@@ -22,7 +22,7 @@
   排查过程、踩过的坑、设计取舍写进提交信息；那些留在与用户的对话里，需要留档就写进代码注释
   或本文件。
 - 本仓库的版本号（`v1.x`）与上游完全独立，不要拿上游的 tag 做比较或参考。本仓库自己的发布
-  序列到目前是 `v1.0.1`…`v1.3.0`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
+  序列到目前是 `v1.0.1`…`v1.3.1`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
   本地 tag 已清理过，只剩本仓库自己的 `v1.x`；万一又看到上游 tag（换了机器、重新克隆等），
   别照它们编号，本地删掉即可。
 - 版本号**逢 10 进 1**：`v1.0.9` 之后是 `v1.1.0`（不是 `v1.0.10`），`v1.1.9` 之后是 `v1.2.0`，
@@ -30,7 +30,7 @@
   步骤，Release 被跳过），后来作为新版本正式发出，现在已经在用。
 - **「传云」的含义**：用户说「传云」（或「传云 git」「推送更新」）时，默认理解为「提交改动 ->
   本仓库版本号 +1 打 annotated tag -> 推送」：即 `git push mine master` 加
-  `git push mine <下一个版本号>`（当前下一个是 `v1.3.1`），让 CI 出 release 给 Launcher 用户。
+  `git push mine <下一个版本号>`（当前下一个是 `v1.3.2`），让 CI 出 release 给 Launcher 用户。
   推完把下一个版本号记住（再次「传云」时就再 +1）。**只推这一个 tag，绝不 `--tags`。**
 - **说「传云」时这一版已经实测过、是稳定版**：用户说「传云」时，不要再去跑测试、也不要回头质疑改动，直接提交 + 打 annotated tag + 推送就行。
 - 发布 = 打 `v*` tag 推到 `mine`：CI 按 tag 改写 `src/config.py` 的 version 并发布 release，
@@ -111,6 +111,7 @@
 - 手动备份统一放到 `C:\Users\Administrator\Desktop\okdna备份`，不要新增到 `ok-dna\backups`。
 - **云游戏窗口分辨率锁定**：globals.py 给 BrowserCaptureMethod.start_browser 打了补丁，并在 Globals 起一个后台线程，每 2 秒把 BrowserCaptureMethod 自己的 Edge 窗口锁回 config 里的 browser.resolution（1600×900）。原因是 ok 框架会把手动缩小后的实际尺寸写回 _size，之后一直停在缩小尺寸；窗口最小化时不动，最大化会先还原再改回。
 - **只剩 vendor/ok 一份**：ok-script 已从依赖里移除（requirements/pyproject 用显式依赖代替），CI 不再 inline ok，测试和构建都用 vendor；tools/set_version.py 负责把 tag 写进 src/config.py。
+- **云游戏采集补丁（vendor/ok）**：browser.py 允许 page.goto 超时后继续、页面标题为空时回退到最大的 Chromium 窗口、页面已开但没挂上 WGC 会自动重连；DeviceManager 先刷浏览器设备再刷 PC 设备。
 - 本地打包（PyInstaller，约 3~5 分钟）只在用户明确要求、或要出冻结版/发布时做；
   打包脚本是仓库里的 `build_exe.spec`。
 
