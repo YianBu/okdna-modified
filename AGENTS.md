@@ -110,6 +110,7 @@
   别留在仓库里。
 - 手动备份统一放到 `C:\Users\Administrator\Desktop\okdna备份`，不要新增到 `ok-dna\backups`。
 - **云游戏窗口分辨率锁定**：globals.py 给 BrowserCaptureMethod.start_browser 打了补丁，并在 Globals 起一个后台线程，每 2 秒把 BrowserCaptureMethod 自己的 Edge 窗口锁回 config 里的 browser.resolution（1600×900）。原因是 ok 框架会把手动缩小后的实际尺寸写回 _size，之后一直停在缩小尺寸；窗口最小化时不动，最大化会先还原再改回。
+- **只剩 vendor/ok 一份**：ok-script 已从依赖里移除（requirements/pyproject 用显式依赖代替），CI 不再 inline ok，测试和构建都用 vendor；tools/set_version.py 负责把 tag 写进 src/config.py。
 - 本地打包（PyInstaller，约 3~5 分钟）只在用户明确要求、或要出冻结版/发布时做；
   打包脚本是仓库里的 `build_exe.spec`。
 

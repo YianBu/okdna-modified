@@ -23,8 +23,6 @@ numpy==2.4.4 ; sys_platform == 'win32'
     #   opencv-python
     #   openvino
     #   shapely
-ok-script==2.0.6 ; sys_platform == 'win32'
-    # via ok-duet-night-abyss
 onnxocr-ppocrv5==0.0.22 ; sys_platform == 'win32'
     # via
     #   ok-duet-night-abyss

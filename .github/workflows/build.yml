@@ -52,11 +52,12 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt
 
-      - name: inline_ok_requirements
-        run: |
-          python -m ok.update.inline_ok_requirements --tag ${{ github.ref_name }}
+      - name: Set app version
+        run: python tools/set_version.py ${{ github.ref_name }}
 
       - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}\vendor
         run: |
           Get-ChildItem -Path ".\tests\*test*.py" | ForEach-Object {
               Write-Host "Running tests in $($_.FullName)"

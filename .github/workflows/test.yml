@@ -49,6 +49,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}\vendor
         run: |
           Get-ChildItem -Path ".\tests\test_*.py" | ForEach-Object {
               Write-Host "Running tests in $($_.FullName)"
