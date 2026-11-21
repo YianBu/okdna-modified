@@ -11,12 +11,12 @@ from pathlib import Path
 from PIL import Image
 from ok import Logger, TaskDisabledException, GenshinInteraction
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
-from src.tasks.CommissionsTask import CommissionsTask, Mission, QuickAssistTask
+from src.tasks.CommissionsTask import CommissionsTask, Mission
 from src.tasks.BaseCombatTask import BaseCombatTask
 
-from src.tasks.AutoDefence import AutoDefence
 from src.tasks.AutoExpulsion import AutoExpulsion
-from src.tasks.AutoExploration import AutoExploration
+from src.tasks.fullauto.DungeonActionLogic import MODE_DEFENCE, MODE_EXPLORATION
+from src.tasks.fullauto.DungeonFlowMixin import DungeonFlowMixin
 
 logger = Logger.get_logger(__name__)
 
@@ -26,7 +26,7 @@ class MacroFailedException(Exception):
     pass
 
 
-class ImportTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class ImportTask(DungeonFlowMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,7 +44,6 @@ class ImportTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             '外部文件夹': "",
             '副本类型': "默认",
             '关闭抖动': False,
-            # '使用内建机关解锁': False,
         })
         self.config_type['外部文件夹'] = {
             "type": "drop_down",
@@ -60,12 +59,10 @@ class ImportTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             '轮次': '如果是无尽关卡，选择打几个轮次',
             '外部文件夹': '选择mod目录下的外部逻辑',
             '关闭抖动': '使用飞枪等存在视角移动的外部逻辑时可以启用',
-            # '使用内建解密': '使用ok内建解密功能',
         })
 
-        self.skill_tick = self.create_skill_ticker()
         self.action_timeout = 10
-        self.quick_assist_task = QuickAssistTask(self)
+        self.setup_dungeon_flow(None, add_afk_config=False)
 
     def run(self):
         if self.config.get('关闭抖动', False):
@@ -78,29 +75,28 @@ class ImportTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             path = Path.cwd()
             self.script = self.process_json_files(fr'{path}\mod\{self.config.get("外部文件夹")}\scripts')
             self.img = self.load_png_files(fr'{path}\mod\{self.config.get("外部文件夹")}\map')
-            if self.config.get('副本类型') == '扼守无尽':
-                _to_do_task = self.get_task_by_class(AutoDefence)
-            elif self.config.get('副本类型') == '探险无尽':
-                _to_do_task = self.get_task_by_class(AutoExploration)
-            elif self.config.get('副本类型') == '驱离':
-                _to_do_task = self.get_task_by_class(AutoExpulsion)
-            else:
-                _to_do_task = self
-            if _to_do_task is not self:
-                _to_do_task.config_external_movement(self.walk_to_aim, self.config)
-                original_info_set = _to_do_task.info_set
-                _to_do_task.info_set = self.info_set
-            return _to_do_task.do_run()
+            dungeon_type = self.config.get('副本类型')
+            if dungeon_type == '扼守无尽':
+                self.dungeon_flow_mode = MODE_DEFENCE
+                self.external_movement = self.walk_to_aim
+                return self.run_dungeon_flow()
+            if dungeon_type == '探险无尽':
+                self.dungeon_flow_mode = MODE_EXPLORATION
+                self.external_movement = self.walk_to_aim
+                return self.run_dungeon_flow()
+            if dungeon_type == '驱离':
+                return self.get_task_by_class(AutoExpulsion).do_run()
+            self.dungeon_flow_mode = None
+            self.external_movement = self.walk_to_aim
+            return self.do_run()
         except TaskDisabledException:
             pass
         except Exception as e:
-            logger.error('AutoDefence error', e)
+            logger.error('ImportTask error', e)
             raise
         finally:
             if self.config.get('关闭抖动', False):
                 self.afk_config.update({"鼠标抖动": mouse_jitter_setting})
-            if _to_do_task is not self:
-                _to_do_task.info_set = original_info_set
 
     def do_run(self):
         self.init_all()
@@ -244,39 +240,12 @@ class ImportTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         # 预编译正则，提高多次调用的效率
         # 假设逻辑是：如果没有前置点，跳过以字母结尾的名字（通常是 start 点之后的步骤）
         end_with_letter_pattern = re.compile(r'[a-zA-Z]$')
-        # maze_task = self.get_task_by_class(AutoMazeTask)
-        # roulette_task = self.get_task_by_class(AutoRouletteTask)
-
         while True:
             start_time = time.perf_counter()
             map_index = None
 
             # 尝试在 5 秒内找到匹配的地图
             while map_index is None and time.perf_counter() - start_time < 5:
-                # if self.config.get('使用内建机关解锁', False):
-                #     maze_task.run()
-                #     roulette_task.run()
-                #     if maze_task.unlocked or roulette_task.unlocked:
-
-                #         def find_next_child(parent_name):
-                #             parent_name += "-"
-                #             for name in self.img.keys():
-                #                 if name.startswith(parent_name) and len(name) > len(parent_name):
-                #                     return name
-                #             return None
-
-                #         step_1 = find_next_child(former_index)
-                #         if step_1:
-                #             self.log_info(f"索引跳跃: {former_index} -> {step_1}")
-                #             former_index = step_1
-
-                #             # 重置时间并跳过本次匹配
-                #             start_time = time.perf_counter()
-                #             self.sleep(1)
-                #             continue
-                #         else:
-                #             self.log_info(f"无法找到 {former_index} 的后续节点")
-
                 # 传入编译好的正则对象，稍微提升一点性能
                 map_index, count = self.match_map(former_index, pattern=end_with_letter_pattern)
 

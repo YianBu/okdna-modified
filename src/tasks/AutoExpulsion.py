@@ -14,10 +14,10 @@ class AutoExpulsion(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_expulsion.svg"
         self.name = "自动驱离"
         self.description = "全自动"
-        self.group_name = "全自动（日常）"
+        self.group_name = "日常"
         self.group_icon = FluentIcon.CALENDAR
 
         self.setup_commission_config()

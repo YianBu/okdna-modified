@@ -22,7 +22,8 @@ class AutoFishTask(DNAOneTimeTask, BaseDNATask):
         super().__init__(*args, **kwargs)
         self.name = "自动钓鱼"
         self.description = "无悠闲全自动钓鱼 (原作者: B站无敌大蜜瓜)"
-        self.group_name = "全自动（休闲）"
+        self.icon = "icons/tasks/auto_fish.svg"
+        self.group_name = "休闲"
         self.group_icon = FluentIcon.CAFE
 
         # 默认配置（会被 configs/AutoFishTask.json 覆盖）

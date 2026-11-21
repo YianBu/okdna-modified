@@ -13,8 +13,10 @@ class AutoSkill(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_skill.svg"
         self.name = "自动释放技能"
+        self.group_name = "测试"
+        self.group_icon = FluentIcon.DEVELOPER_TOOLS
 
         self.default_config.update({
             '主画面侦测': True,

@@ -61,10 +61,10 @@ class AutoMediationTask_Fast(AutoExpulsion):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_mediation.svg"
         self.name = "自动调停/老道"
         self.description = "全自动（使用黎瑟+巧手+老道，可带两个高伤C打柱子）"
-        self.group_name = "全自动（日常）"
+        self.group_name = "日常"
         self.group_icon = FluentIcon.CALENDAR
 
         self.default_config.update({

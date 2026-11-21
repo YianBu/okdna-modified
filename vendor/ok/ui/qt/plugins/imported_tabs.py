@@ -1,0 +1,196 @@
+"""Host-owned task/custom pages for imported plugins."""
+
+from PySide6.QtCore import QObject, QTimer
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
+from shiboken6 import isValid
+
+from ok import Logger, og
+from ok.core.icons import Icon
+from ok.core.plugins import import_plugin_class
+from ok.ui.qt.tasks.tasks_page import TasksPage
+
+logger = Logger.get_logger(__name__)
+
+
+class ImportedTaskTab(TasksPage):
+    """The Tasks page layout for one imported plugin's tasks."""
+
+    def __init__(self, namespace, name):
+        self.namespace = namespace
+        self.imported_file_name = namespace
+        self.state_name = f"tasks_page_{namespace}"
+        super().__init__(title=og.app.tr(name))
+        # TasksPage names itself "TasksPage", which is also the main Tasks
+        # page's navigation key; each imported tab needs its own key.
+        self.setObjectName(self.state_name)
+
+    def collect_tasks(self):
+        from ok.task.task import TriggerTask
+        entry = og.task_manager.imported_scripts.get(self.namespace, {})
+        tasks = [task for task in entry.get('tasks', ()) if getattr(task, 'visible', True)]
+        return ([task for task in tasks if not isinstance(task, TriggerTask)],
+                [task for task in tasks if isinstance(task, TriggerTask)])
+
+    def in_current_list(self, task):
+        """Select ``task`` when this page lists it."""
+        if not self.has_task(task):
+            return False
+        self.select_task(task)
+        return True
+
+
+def _dispose_widget(widget):
+    if not isValid(widget):
+        return
+    try:
+        cleanup = getattr(widget, 'dispose', None) or getattr(widget, 'stop_worker', None)
+        if callable(cleanup):
+            cleanup()
+    except Exception as error:
+        logger.error('Failed to dispose plugin page', error)
+
+
+class ImportedPluginPage(QWidget):
+    """Adapt an imported task's page factory without exposing MainWindow internals."""
+
+    def __init__(self, task):
+        super().__init__()
+        self.page = None
+        self.view = QWidget(self)
+        self.vBoxLayout = QVBoxLayout(self.view)
+        self.vBoxLayout.setContentsMargins(0, 0, 0, 0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 16)
+        # No kit stylesheet here: the plugin's page keeps its own styling.
+        layout.addWidget(self.view)
+        try:
+            page = task.create_import_page(self.view)
+            if not isinstance(page, QWidget) or page.isWindow():
+                raise TypeError('create_import_page must return an embedded QWidget')
+            self.page = page
+            self.vBoxLayout.addWidget(page, 1)
+            self.name = task.name
+            self.icon = task.group_icon
+        except Exception:
+            self.deleteLater()
+            raise
+
+    def dispose(self):
+        if self.page is not None:
+            _dispose_widget(self.page)
+
+
+class ImportedTabs(QObject):
+    def __init__(self, window):
+        super().__init__(window)
+        self.window = window
+        self.custom_tabs = {}
+        self._entries = {}
+        self._refreshing = False
+        self._closed = False
+        app = QApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self.dispose)
+
+    def _remove(self, namespace):
+        widgets = self.custom_tabs.pop(namespace, [])
+        task_tab = self.window.imported_tabs.pop(namespace, None)
+        if task_tab is not None:
+            widgets.append(task_tab)
+        for widget in widgets:
+            if not isValid(widget):
+                continue
+            _dispose_widget(widget)
+            self.window.remove_page(widget)
+            widget.hide()
+            widget.deleteLater()
+        self._entries.pop(namespace, None)
+
+    def _add(self, widget, name, icon):
+        if not widget.objectName():
+            widget.setObjectName(f'plugin_{id(widget)}')
+        self.window.add_page(widget, icon, self.window.app.tr(name), "run")
+
+    def refresh(self):
+        if self._closed:
+            return
+        if self._refreshing:
+            QTimer.singleShot(0, self.refresh)
+            return
+        self._refreshing = True
+        try:
+            entries = og.task_manager.imported_scripts
+            for namespace in tuple(self._entries):
+                entry = entries.get(namespace)
+                state = self._state(entry) if entry is not None else None
+                if self._entries[namespace] != state:
+                    self._remove(namespace)
+            for namespace, entry in tuple(entries.items()):
+                if namespace not in self._entries:
+                    self._entries[namespace] = self._state(entry)
+                    self._create(namespace, entry)
+        finally:
+            self._refreshing = False
+
+    @staticmethod
+    def _state(entry):
+        return (id(entry), tuple(id(task) for task in entry.get('tasks', ())
+                                 if getattr(task, 'visible', True)))
+
+    def _create(self, namespace, entry):
+        from ok.core.plugin_staging import finish_plugin_update
+        tasks = [task for task in entry.get('tasks', ()) if getattr(task, 'visible', True)]
+        pages = []
+        errors = entry.setdefault('tab_errors', {})
+        specifications = entry.get('custom_tabs', [])
+        for module, name in specifications:
+            widget = None
+            try:
+                cls = import_plugin_class(entry['folder'], (module, name))
+                widget = cls()
+                if not isinstance(widget, QWidget):
+                    raise TypeError('Plugin custom_tabs must create QWidgets')
+                widget.executor = self.window.executor
+                self._add(widget, getattr(widget, 'name', entry['script_name']),
+                          getattr(widget, 'icon', Icon.APPLICATION))
+                pages.append(widget)
+            except Exception as error:
+                if isinstance(widget, QWidget):
+                    _dispose_widget(widget)
+                    widget.deleteLater()
+                errors[f'{module}.{name}'] = str(error)
+                logger.error(f'Failed to load plugin tab {namespace}/{module}.{name}', error)
+
+        # Existing packages such as Workshop already expose a task-owned page.
+        # Keep its shared task runtime, and let the host own the Qt container.
+        if not specifications:
+            for task in tasks:
+                if not callable(getattr(task, 'create_import_page', None)):
+                    continue
+                widget = None
+                try:
+                    widget = ImportedPluginPage(task)
+                    self._add(widget, widget.name, widget.icon)
+                    pages.append(widget)
+                except Exception as error:
+                    if widget is not None:
+                        widget.deleteLater()
+                    errors[type(task).__name__] = str(error)
+                    logger.error(f'Failed to create plugin page {namespace}', error)
+
+        if pages:
+            self.custom_tabs[namespace] = pages
+        # A task-owned page replaces its generic cards. Explicit tabs can
+        # coexist with runnable tasks, while tab-only plugins need no task tab.
+        if tasks and (specifications or not pages):
+            group_tab = ImportedTaskTab(namespace, entry['script_name'])
+            self.window.imported_tabs[namespace] = group_tab
+            self._add(group_tab, entry['script_name'], getattr(tasks[0], 'group_icon', Icon.APPLICATION))
+        finish_plugin_update(namespace, error='\n'.join(errors.values()) or None)
+
+    def dispose(self):
+        if self._closed:
+            return
+        self._closed = True
+        for namespace in tuple(self._entries):
+            self._remove(namespace)

@@ -129,10 +129,10 @@ class AutoEternalNightmareTask(CharacterRotationMixin, DNAOneTimeTask, Commissio
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_nightmare.svg"
         self.name = "自动永恒梦魇"
         self.description = "自动刷永恒梦魇"
-        self.group_name = "全自动（活动）"
+        self.group_name = "活动"
         self.group_icon = FluentIcon.GAME
 
         # 这个模式没有「挂机模式」那套移动/复位配置：只有轮次 + 超时重启

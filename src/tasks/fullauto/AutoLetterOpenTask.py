@@ -134,10 +134,10 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_letter.svg"
         self.name = "自动开密函"
         self.description = "全自动"
-        self.group_name = "全自动（活动）"
+        self.group_name = "日常"
         self.group_icon = FluentIcon.GAME
 
         self.default_config.update({
@@ -253,7 +253,7 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
         return True
 
     def handle_in_mission(self):
-        # 回到局内 = 这一波打完了：下一次行动抉择要能再记一轮（同 AutoDefence 每轮清零）。
+        # 回到局内 = 这一波打完了：下一次行动抉择要能再记一轮（每轮清零）。
         # 不清零的话 get_round_info 会被"这一轮已数过"挡住，轮次永远停在 1。
         self._round_counted = False
         self.walk_when_entered()
@@ -522,7 +522,7 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
                     self.sleep(0.1)
                     continue
                 if status == Mission.CONTINUE and self.is_walk_mode():
-                    # 探险/扼守：和 AutoDefence.do_run 的「继续轮次」一样，续下一轮前重置本局
+                    # 探险/扼守：和全自动扼守流程的「继续轮次」一样，续下一轮前重置本局
                     # 状态（超时计时变成按波算）、等回到局内。驱离保持原样不动。
                     self.log_info("任务继续")
                     self.init_for_next_round()

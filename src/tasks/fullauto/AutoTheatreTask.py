@@ -167,10 +167,10 @@ class AutoTheatreTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, B
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_theatre.svg"
         self.name = "自动沉浸式戏剧"
         self.description = "全自动"
-        self.group_name = "全自动（活动）"
+        self.group_name = "活动"
         self.group_icon = FluentIcon.GAME
 
         self.rotation_table = rotations_for("theatre")

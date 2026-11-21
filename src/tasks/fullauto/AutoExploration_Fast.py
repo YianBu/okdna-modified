@@ -1,11 +1,8 @@
 from ok import Logger, TaskDisabledException
 from qfluentwidgets import FluentIcon
 
-from src.tasks.AutoExploration import AutoExploration
-from src.tasks.CommissionsTask import CommissionsTask, QuickAssistTask
+from src.tasks.CommissionsTask import CommissionsTask
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
-from src.tasks.trigger.AutoMazeTask import AutoMazeTask
-from src.tasks.trigger.AutoRouletteTask import AutoRouletteTask
 from src.tasks.BaseCombatTask import BaseCombatTask
 from src.tasks.fullauto.DungeonActionLogic import (
     MODE_EXPLORATION,
@@ -13,6 +10,7 @@ from src.tasks.fullauto.DungeonActionLogic import (
     maps_for_mode,
 )
 from src.tasks.fullauto.DungeonActionMixin import DungeonActionMixin
+from src.tasks.fullauto.DungeonFlowMixin import DungeonFlowMixin
 
 logger = Logger.get_logger(__name__)
 DEFAULT_ACTION_TIMEOUT = 10
@@ -28,7 +26,7 @@ class MapDetectionError(Exception):
     pass
 
 
-class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class AutoExploration_Fast(DungeonFlowMixin, DungeonActionMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     """全自动探险/无尽：判图与走位复用「自动开密函」的探险那套（DungeonActionMixin）。
 
     地图名 / 判图框 / 行动函数都在 ``DungeonActionLogic`` / ``DungeonActionMixin``；
@@ -37,24 +35,23 @@ class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, 
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_exploration.svg"
         self.group_icon = FluentIcon.CALENDAR
         self.name = "自动探险/无尽"
         self.description = "全自动"
-        self.group_name = "全自动（日常）"
+        self.group_name = "日常"
         self.default_config.update({
             '轮次': 3,
             '超时时间': 120,
-            '解密失败自动重开': True,
             '地图选择': list(EXPLORATION_MAPS),
         })
         self.config_description.update({
             '轮次': '打几个轮次',
             '超时时间': '超时后将发出提示',
-            '解密失败自动重开': '不重开时会发出声音提示',
             '地图选择': '选择要自动执行的地图类型',
         })
         self.setup_commission_config()
+        self.setup_dungeon_flow(MODE_EXPLORATION)
 
         # 地图选择：选项就是「自动开密函」探险那套地图
         self.config_type["地图选择"] = {
@@ -62,22 +59,16 @@ class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, 
             "options": list(EXPLORATION_MAPS),
         }
         self.action_timeout = DEFAULT_ACTION_TIMEOUT
-        self.quick_assist_task = QuickAssistTask(self)
 
     def run(self):
         DNAOneTimeTask.run(self)
         self.move_mouse_to_safe_position(save_current_pos=False)
         self.set_check_monthly_card()
-        _to_do_task = None
-        original_info_set = None
+        self.external_movement = self.walk_to_aim
         try:
-            _to_do_task = self.get_task_by_class(AutoExploration)
-            _to_do_task.config_external_movement(self.walk_to_aim, self.config)
-            original_info_set = _to_do_task.info_set
-            _to_do_task.info_set = self.info_set
             while True:
                 try:
-                    return _to_do_task.do_run()
+                    return self.run_dungeon_flow()
                 except MapDetectionError as e:
                     # 地图识别错误，记录日志并重试
                     self.log_info(f"地图识别错误: {e}，重新开始任务")
@@ -86,9 +77,6 @@ class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, 
         except Exception as e:
             logger.error('AutoExploration_Fast error', e)
             raise
-        finally:
-            if _to_do_task is not None and _to_do_task is not self and original_info_set is not None:
-                _to_do_task.info_set = original_info_set
 
     def walk_to_aim(self, delay=0):
         """判当前是哪张探险图，跑「自动开密函」那套对应走位。
@@ -107,30 +95,4 @@ class AutoExploration_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, 
             raise MapDetectionError(f"当前地图[{current_map}]不匹配选择的地图{map_selection}")
         self.log_info(f"识别到地图类型：{current_map}，开始执行移动逻辑")
         return self.run_dungeon_action(current_map)
-
-    def try_solving_puzzle(self):
-        """原版解谜处理（迷宫 / 轮盘）。
-
-        DungeonActionMixin（「自动开密函」/「行动逻辑测试」）会调到这一份；本任务自己的探险
-        走位改用 solve_exploration_mechanism（反复按交互键到开战），不再走这里。
-        """
-        maze_task = self.get_task_by_class(AutoMazeTask)
-        roulette_task = self.get_task_by_class(AutoRouletteTask)
-        if not self.wait_until(
-            self.in_team,
-            post_action=lambda: self.send_key(self.get_interact_key(), after_sleep=0.1),
-            time_out=1.5
-        ):
-            maze_task.run()
-            roulette_task.run()
-            if not self.wait_until(self.in_team, time_out=1.5):
-                if self.config.get("解密失败自动重开", True):
-                    self.log_info("未成功处理解密，等待重开")
-                    self.open_in_mission_menu()
-                else:
-                    self.log_info_notify("未成功处理解密，请求人工接管")
-                    self.soundBeep()
-                    self.wait_until(self.in_team, time_out=60)
-                return False
-        return True
 

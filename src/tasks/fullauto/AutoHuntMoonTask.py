@@ -216,10 +216,10 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_hunt_moon.svg"
         self.name = "自动狩月人之阶"
         self.description = "1.7版本推荐打134层类似的高台图，平台图会被一下打死"
-        self.group_name = "全自动（活动）"
+        self.group_name = "活动"
         self.group_icon = FluentIcon.GAME
 
         # 狩月人的角色视图；子类（如「角色循环」测试）可以换成完整共享表

@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from ok import ConfigOption
+from ok import ConfigOption, Icon
 from src.process_feature import process_feature
 
 version = "dev"
@@ -22,6 +22,8 @@ key_config_option = ConfigOption(
     },
     description="In Game Hotkey for Skills",
     config_type={"Interact Key": {"type": "drop_down", "options": ["f", "e"]}},
+    show_at_tab=True,
+    icon=Icon.GAME,
 )
 
 sensitivity_config_option = ConfigOption(
@@ -34,6 +36,8 @@ sensitivity_config_option = ConfigOption(
         "Aim Y-axis sensitivity": 1.0,
     },
     description="Game Sensitivity Description",
+    show_at_tab=True,
+    icon=Icon.APPLICATION,
 )
 
 afk_config_option = ConfigOption(
@@ -109,6 +113,8 @@ config = {
     "custom_tasks": True,  # enable creating and editing custom tasks
     "debug": False,  # Optional, default: False
     "use_gui": True,  # 目前只支持True
+    "gui": {"type": "qt"},
+    "game_name": "二重螺旋",
     "config_folder": "configs",  # 最好不要修改
     "global_configs": [
         key_config_option,
@@ -149,8 +155,8 @@ config = {
     "window_size": {  # ok-script窗口大小
         "width": 1200,
         "height": 800,
-        "min_width": 600,
-        "min_height": 450,
+        "min_width": 1200,
+        "min_height": 800,
     },
     "supported_resolution": {
         "ratio": None,
@@ -160,17 +166,13 @@ config = {
     "links": {  # 关于里显示的链接, 可选
         "default": {
             "github": "https://github.com/YianBu/okdna_modified",
-            "sponsor": "https://ko-fi.com/bnanz",
-            "qq_group": "https://qm.qq.com/q/iF3bfUflY",
-            "qq_channel": "https://pd.qq.com/s/djmm6l44y",
-            "discord": "https://discord.gg/vVyCatEBgA",
-            "faq": "https://github.com/YianBu/okdna_modified",
+            "sponsor": "https://afdian.com/a/yianbu",
         }
     },
     "about": """
         <p style="color:red;">
-        <strong>本软件是免费开源的。</strong> 如果你被收费，请立即退款。请访问 QQ 频道或 GitHub 下载最新的官方版本。<br>
-        <strong>This software is free and open-source.</strong> If you were charged for it, please request a refund immediately. Visit the QQ channel or GitHub to download the latest official version.
+        <strong>本软件是免费开源的。</strong> 如果你被收费，请立即退款。请访问 GitHub 下载最新的官方版本。<br>
+        <strong>This software is free and open-source.</strong> If you were charged for it, please request a refund immediately. Visit GitHub to download the latest official version.
         </p>
 
         <p style="color:red;">
@@ -185,6 +187,25 @@ config = {
     """,
     "screenshots_folder": "screenshots",  # 截图存放目录, 每次重新启动会清空目录
     "gui_title": "ok-dna-mod",  # Optional
+    "log_file": "logs/ok-script.log",
+    "error_log_file": "logs/ok-script_error.log",
+    "task_category_icons": {
+        "all": "grid",
+        "onetime": "bolt",
+        "trigger": "timer",
+        "group:日常": "icons/groups/daily.svg",
+        "group:活动": "icons/groups/activity.svg",
+        "group:休闲": "icons/groups/leisure.svg",
+        "group:任务设定": "gear",
+        "group:测试": "bug",
+    },
+    "task_category_colors": {
+        "all": {"light": "#526174", "dark": "#B5BECF"},
+        "onetime": {"light": "#087C70", "dark": "#72D9CC"},
+        "trigger": {"light": "#AC3652", "dark": "#F09AA8"},
+        "group:任务设定": {"light": "#8C651A", "dark": "#E8C27C"},
+        "group:测试": {"light": "#AC3652", "dark": "#F09AA8"},
+    },
     "template_matching": {
         "coco_feature_json": os.path.join(
             "assets", "coco_annotations.json"
@@ -205,9 +226,12 @@ config = {
         "src.globals",
         "Globals",
     ],  # 全局单例对象, 可以存放加载的模型, 使用og.my_app调用
+    "tasks_page": ["src.gui.TaskPages", "MainTasksPage"],
+    "custom_tabs": [
+        ["src.gui.TaskPages", "TaskSettingsPage"],
+        ["src.gui.TaskPages", "TestTasksPage"],
+    ],
     "onetime_tasks": [  # tasks to execute
-        ["src.tasks.config.CommissionConfig", "CommissionConfig"],
-        ["src.tasks.config.CommissionSkillConfig", "CommissionSkillConfig"],
         # 全自动（日常）
         ["src.tasks.AutoExpulsion", "AutoExpulsion"],
         ["src.tasks.fullauto.Auto65ArtifactTask_Fast", "Auto65ArtifactTask_Fast"],
@@ -224,26 +248,16 @@ config = {
         ["src.tasks.fullauto.AutoFishTask_Leisure", "AutoFishTask_Leisure"],
         ["src.tasks.fullauto.AutoFishTask", "AutoFishTask"],
         ["src.tasks.AutoSkill", "AutoSkill"],
-        ["src.tasks.AutoGeneral", "AutoGeneral"],
-        ["src.tasks.AutoDefence", "AutoDefence"],
-        ["src.tasks.AutoExploration", "AutoExploration"],
-        ["src.tasks.AutoExcavation", "AutoExcavation"],
         # 测试
         ["src.tasks.fullauto.CharacterRotationTestTask", "CharacterRotationTestTask"],
         ["src.tasks.fullauto.AutoRecordTask", "AutoRecordTask"],
         ["src.tasks.fullauto.AutoDungeonActionTestTask", "AutoDungeonActionTestTask"],
         ["src.tasks.fullauto.AutoActionLogicScriptTask", "AutoActionLogicScriptTask"],
         ["src.tasks.fullauto.ImportTask", "ImportTask"],
-        ["ok", "DiagnosisTask"],
+        # 全局配置放在最后，打开任务页时默认选中第一个可运行任务
+        ["src.tasks.config.CommissionConfig", "CommissionConfig"],
+        ["src.tasks.config.CommissionSkillConfig", "CommissionSkillConfig"],
     ],
-    "trigger_tasks": [
-        ["src.tasks.trigger.AutoRouletteTask", "AutoRouletteTask"],
-        ["src.tasks.trigger.AutoMazeTask", "AutoMazeTask"],
-        ["src.tasks.trigger.AutoPickTask", "AutoPickTask"],
-        ["src.tasks.trigger.AutoCombatTask", "AutoCombatTask"],
-        ["src.tasks.trigger.AutoMoveTask", "AutoMoveTask"],
-        ["src.tasks.trigger.AutoAimTask", "AutoAimTask"],
-        ["src.tasks.trigger.AutoRogueDialogTask", "AutoRogueDialogTask"],
-    ],
+    "trigger_tasks": [],
     "scene": ["src.scene.DNAScene", "DNAScene"],
 }

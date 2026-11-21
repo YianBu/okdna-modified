@@ -104,10 +104,10 @@ class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, Bas
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_mijin.svg"
         self.name = "自动迷津"
         self.description = "全自动"
-        self.group_name = "全自动（活动）"
+        self.group_name = "活动"
         self.group_icon = FluentIcon.GAME
 
         # 一轮打太久的兜底：超时就主动退本、重开一轮。

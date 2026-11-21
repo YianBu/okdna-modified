@@ -1,8 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ROOT = os.getcwd()
+sys.path.insert(0, os.path.join(ROOT, "vendor"))
 
 datas = []
 binaries = []

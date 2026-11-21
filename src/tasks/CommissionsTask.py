@@ -54,7 +54,7 @@ class CommissionsTask(BaseDNATask):
         self.mission_status = None
         self.action_timeout = 15
         self.wave_future = None
-        # 有没有被注入录制走位（`move_on_begin` 要判断它）。半自动任务会覆盖这个值，
+        # 有没有被注入录制走位（`move_on_begin` 要判断它）。全自动任务会覆盖这个值，
         # 自动驱离没有录制机制，保留这里的默认空实现。
         self.external_movement = _default_movement
 
@@ -83,7 +83,7 @@ class CommissionsTask(BaseDNATask):
         })
 
     def setup_mission_start_config(self):
-        """开局挂机配置。定义只有这一份，手动半自动任务和自动驱离共用。"""
+        """开局挂机配置。定义只有这一份，全自动任务和自动驱离共用。"""
         self._mission_started = False
         self.default_config.update({
             "随机游走": False,
@@ -100,7 +100,7 @@ class CommissionsTask(BaseDNATask):
         }
 
     def setup_combat_detection_config(self):
-        """「战斗侦测」开关（有战斗判据的半自动任务共用）。
+        """「战斗侦测」开关（有战斗判据的全自动任务共用）。
 
         开（默认）：等各任务的战斗判据成立才按技能 —— 和以前完全一样。
         关：只要在局内（且没停在菜单/确认弹窗上）就按技能。
@@ -884,42 +884,6 @@ class CommissionsTask(BaseDNATask):
         """
         return self.find_letter_select_not_use()
 
-
-class QuickAssistTask:
-
-    def __init__(self, owner: "CommissionsTask"):
-        self._owner = owner
-        self._move_task = None
-        self._aim_task = None
-
-    def run(self):
-        if self._owner.commission_config.get("自动穿引共鸣", False):
-            if not self._move_task:
-                from src.tasks.trigger.AutoMoveTask import AutoMoveTask
-
-                self._move_task = self._owner.get_task_by_class(AutoMoveTask)
-
-            if self._move_task:
-                self._move_task.try_connect_listener()
-                self._move_task.run()
-        
-        if self._owner.commission_config.get("自动花弓", False):
-            if not self._aim_task:
-                from src.tasks.trigger.AutoAimTask import AutoAimTask
-
-                self._aim_task = self._owner.get_task_by_class(AutoAimTask)
-
-            if self._aim_task:
-                self._aim_task.try_connect_listener()
-                self._aim_task.run()
-
-    def reset(self):
-        if self._move_task:
-            self._move_task.reset()
-            self._move_task.try_disconnect_listener()
-        if self._aim_task:
-            self._aim_task.reset()
-            self._aim_task.try_disconnect_listener()
 
 def normalize_ocr_scale(cv_image, scale=1.0):
     """把 OCR 区域放大到固定字号再识别。

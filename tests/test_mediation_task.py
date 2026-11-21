@@ -31,7 +31,7 @@ class TestMediationTask(TaskTestCase):
 
     def test_name_group_and_note(self):
         self.assertEqual(self.task.name, "自动调停/老道")
-        self.assertEqual(self.task.group_name, "全自动（日常）")
+        self.assertEqual(self.task.group_name, "日常")
         self.assertNotIn("备注", self.task.default_config)
         self.assertIn("超时时间", self.task.default_config)
         self.assertEqual(self.task.default_config["超时时间"], 90)

@@ -78,3 +78,10 @@ mod/*
 # 忽略vscode插件文件
 .history/
 ook
+
+# 新版 ok UI（来自 ok-ww 的 shell/kit）随项目本地化
+!vendor/
+!vendor/**
+# vendor 下不提交字节码
+vendor/**/__pycache__/
+vendor/**/*.pyc

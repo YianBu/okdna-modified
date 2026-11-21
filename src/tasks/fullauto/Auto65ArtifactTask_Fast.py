@@ -5,13 +5,13 @@ from src.tasks.DNAOneTimeTask import DNAOneTimeTask
 from src.tasks.CommissionsTask import CommissionsTask
 from src.tasks.BaseCombatTask import BaseCombatTask
 
-from src.tasks.AutoDefence import AutoDefence
 from src.tasks.fullauto.DungeonActionLogic import (
     MODE_DEFENCE,
     default_map_for_mode,
     maps_for_mode,
 )
 from src.tasks.fullauto.DungeonActionMixin import DungeonActionMixin
+from src.tasks.fullauto.DungeonFlowMixin import DungeonFlowMixin
 
 logger = Logger.get_logger(__name__)
 
@@ -26,7 +26,7 @@ class MapDetectionError(Exception):
     pass
 
 
-class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class Auto65ArtifactTask_Fast(DungeonFlowMixin, DungeonActionMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     """
     移动更快的自动30/65级mod，路径参考EMT
 
@@ -36,13 +36,14 @@ class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTas
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_defence.svg"
         self.name = "自动扼守/无尽"
         self.description = "全自动"
-        self.group_name = "全自动（日常）"
+        self.group_name = "日常"
         self.group_icon = FluentIcon.CALENDAR
 
         self.setup_commission_config()
+        self.setup_dungeon_flow(MODE_DEFENCE)
         self.default_config.update({
             "地图选择": list(DEFENCE_MAPS),
         })
@@ -55,23 +56,16 @@ class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTas
             "options": list(DEFENCE_MAPS),
         }
 
-        self.action_timeout = 10
-
     def run(self):
         """主运行方法"""
         DNAOneTimeTask.run(self)
         self.move_mouse_to_safe_position(save_current_pos=False)
         self.set_check_monthly_card()
-        _to_do_task = None
-        original_info_set = None
+        self.external_movement = self.walk_to_aim
         try:
-            _to_do_task = self.get_task_by_class(AutoDefence)
-            _to_do_task.config_external_movement(self.walk_to_aim, self.config)
-            original_info_set = _to_do_task.info_set
-            _to_do_task.info_set = self.info_set
             while True:
                 try:
-                    return _to_do_task.do_run()
+                    return self.run_dungeon_flow()
                 except MapDetectionError as e:
                     # 判出来的地图不在「地图选择」里：记日志后重新开始一轮
                     self.log_info(f"地图识别错误: {e}，重新开始任务")
@@ -80,9 +74,6 @@ class Auto65ArtifactTask_Fast(DungeonActionMixin, DNAOneTimeTask, CommissionsTas
         except Exception as e:
             logger.error("AutoMyDungeonTask error", e)
             raise
-        finally:
-            if _to_do_task is not None and _to_do_task is not self and original_info_set is not None:
-                _to_do_task.info_set = original_info_set
 
     def walk_to_aim(self, delay=0):
         """判当前是哪张防御图，跑「自动开密函」扼守那套对应走位。

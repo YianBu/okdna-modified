@@ -5,11 +5,9 @@ import cv2
 from typing import Callable
 
 from ok import Logger, TaskDisabledException
-from src.tasks.CommissionsTask import CommissionsTask, QuickAssistTask, Mission, _default_movement
+from src.tasks.CommissionsTask import CommissionsTask, Mission, _default_movement
 from src.tasks.BaseCombatTask import BaseCombatTask
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
-from src.tasks.trigger.AutoRouletteTask import AutoRouletteTask
-from src.tasks.trigger.AutoMazeTask import AutoMazeTask
 
 logger = Logger.get_logger(__name__)
 
@@ -18,10 +16,10 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
+        self.icon = "icons/tasks/auto_hedge.svg"
         self.name = "自动避险"
         self.description = "全自动"
-        self.group_name = "全自动（日常）"
+        self.group_name = "日常"
         self.group_icon = FluentIcon.CALENDAR
 
         self.setup_commission_config()
@@ -35,7 +33,6 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             '超时时间': '超时后将发出提示',
         })
 
-        self.quick_assist_task = QuickAssistTask(self)
         self.external_movement = _default_movement
         self.external_movement_evac = _default_movement
         self._external_config = None
@@ -46,8 +43,6 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.mission_complete = False
         self.ocr_future = None
         self.last_ocr_result = -1
-        self.roulette_task = None
-        self.maze_task = None
 
 
     @property
@@ -85,11 +80,10 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         except TaskDisabledException:
             pass
         except Exception as e:
-            logger.error("AutoExploration error", e)
+            logger.error("AutoHedge error", e)
             raise
 
     def do_run(self):
-        self.init_task()
         self.init_all()
         self.load_char()
 
@@ -100,9 +94,6 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             if self.in_team():
                 if self.move_on_begin():
                     self.handle_in_mission()
-            else:
-                self.roulette_task.run()
-                self.maze_task.run()
 
             _status = self.handle_mission_interface(stop_func=self.stop_func)
             if _status == Mission.START:
@@ -138,7 +129,6 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         if in_combat:
             if self.runtime_state["start_time"] == 0:
                 self.runtime_state["start_time"] = time.time()
-                self.quick_assist_task.reset()
 
             if not self.runtime_state["wait_next_round"] and self.combat_detection_enabled() and time.time() - self.runtime_state[
                 "start_time"] >= self.config.get("超时时间", 120):
@@ -163,7 +153,6 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 else:
                     self.log_info_notify("任务结束")
                     self.soundBeep()
-            self.quick_assist_task.run()
 
         # 战斗侦测关掉时不等避险进度，局内就按技能
         if not self.runtime_state["wait_next_round"] and self.skills_ready(in_combat):
@@ -240,8 +229,3 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             ret = box.x
         return ret
 
-    def init_task(self):
-        if self.roulette_task is None:
-            self.roulette_task = self.get_task_by_class(AutoRouletteTask)
-        if self.maze_task is None:
-            self.maze_task = self.get_task_by_class(AutoMazeTask)

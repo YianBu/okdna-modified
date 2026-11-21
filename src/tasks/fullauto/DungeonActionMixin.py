@@ -8,20 +8,18 @@
 
 地图表 / 选择函数在 ``DungeonActionLogic``；每张图的动作是本类里的 execute_* 方法。
 这里只放行为。用了 ``super()``，所以
-使用方必须把这个 mixin 放在基类列表的**最前面**，且基类链上要有 ``CommissionsTask``
-（``is_in_combat`` 要落到它那份实现、``find_track_point`` 要落到 ``BaseDNATask``）。
+使用方必须把这个 mixin 放在任务基类前面，且基类链上要有 ``CommissionsTask``。
 """
 
 import time
 
 from src.dna_ui.Defs import REF_WIDTH, REF_HEIGHT
-from src.tasks.AutoDefence import AutoDefence
-from src.tasks.AutoExploration import AutoExploration
 from src.tasks.fullauto.DungeonActionLogic import (
     DUNGEON_MAPS,
     action_for_map,
     default_map_for_mode,
 )
+from src.tasks.fullauto.DungeonSignals import DungeonSignalsMixin
 
 # 前进到开战：开战判据成立后再多走这么多秒（进交战区还差一点），走满 HOLD_W_TIME_OUT
 # 秒还没开战就松手，交给外层超时重开（这里不自己放弃）。「自动扼守/无尽」的直走也走这里。
@@ -47,7 +45,7 @@ DETECT_PROBE_FULL_THRESHOLD = 0.5
 DETECT_PROBE_LIMIT = 5
 
 
-class DungeonActionMixin:
+class DungeonActionMixin(DungeonSignalsMixin):
 
     # ------------------------------------------------------------------
     # 判地图：只看固定位置的 track_point（追踪点）图标
@@ -326,23 +324,6 @@ class DungeonActionMixin:
                 self.send_key_up(key)
             self.send_key_up(self.get_dodge_key())
             self.send_key_up("lshift")
-
-    def try_solving_puzzle(self):
-        """原版解谜处理（迷宫 / 轮盘），被上面的探险行动函数调用。
-
-        ``AutoExploration_Fast`` 也用这个 mixin，所以这里**延迟导入**它，避免
-        ``AutoExploration_Fast -> DungeonActionMixin -> AutoExploration_Fast`` 的循环导入。
-        """
-        from src.tasks.fullauto.AutoExploration_Fast import AutoExploration_Fast
-
-        return AutoExploration_Fast.try_solving_puzzle(self)
-
-    # ---- 开战判据：探险看血清、扼守看波次，都复用原版 ----
-    def find_target_wave(self):
-        return AutoDefence.find_target_wave(self)
-
-    def find_serum(self):
-        return AutoExploration.find_serum(self)
 
     def is_in_combat(self):
         """开战判据：扼守的「波次 x/y」、探险的血清图标，任一命中即开战。"""

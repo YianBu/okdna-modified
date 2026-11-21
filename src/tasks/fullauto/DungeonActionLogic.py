@@ -1,8 +1,8 @@
 """扼守 / 探险 密函副本的「地图判定 -> 外部行动逻辑」。
 
-这是一个**独立**模块：不改动 ``AutoLetterOpenTask``（驱离）的流程，也不改
-``AutoExploration`` / ``AutoDefence`` / ``AutoExploration_Fast`` 的任何行为，只被
-``AutoLetterOpenTask``（自动开密函的探险 / 扼守模式）引用。
+这是一个**独立**模块：不改动 ``AutoLetterOpenTask``（驱离）的流程，只被
+``AutoLetterOpenTask``（自动开密函的探险 / 扼守模式）、``Auto65ArtifactTask_Fast``
+和 ``AutoExploration_Fast`` 引用。
 
 判定方式与原版一致：看屏幕上固定位置的 ``track_point``（追踪点）图标落在哪个搜索
 框里，就知道当前是哪张地图；每张地图对应一段外部行动逻辑（走位 / 解谜）。判定出
