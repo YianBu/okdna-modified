@@ -309,8 +309,8 @@ class DeviceManager:
         try:
             self.refresh_emulators(current)
             self.refresh_phones(current)
-            self.update_pc_device()
             self.update_browser_device()
+            self.update_pc_device()
         except Exception as e:
             logger.error('refresh error', e)
 
@@ -443,6 +443,10 @@ class DeviceManager:
             imei = self.config.get("preferred")
         preferred = self.device_dict.get(imei)
         if preferred is None:
+            if (imei == 'browser' and self.browser_config is not None
+                    and windows_graphics_available()):
+                logger.debug('browser device not enumerated yet, keep browser preference')
+                return
             if len(self.device_dict) > 0:
                 connected_device = None
                 for device in self.device_dict.values():

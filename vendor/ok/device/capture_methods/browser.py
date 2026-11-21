@@ -172,12 +172,22 @@ class BrowserCaptureMethod(BaseCaptureMethod):
                 self.page = await self.browser.new_page()
 
             if url:
-                await self.page.goto(url)
+                try:
+                    await self.page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                except Exception as error:
+                    # Cloud-game pages can keep loading past Playwright's 30s
+                    # navigation timeout. The page and window are still usable;
+                    # continue with window discovery instead of aborting capture.
+                    logger.warning(f'BrowserCaptureMethod page.goto failed, continuing: {error}')
 
         if fake_pointer_lock:
             # A reused page loaded before the init script was registered.
             await self.page.evaluate(FAKE_POINTER_LOCK_JS)
 
+        await self._attach_browser_window_async()
+
+    async def _attach_browser_window_async(self):
+        width, height = self._size
         await self.page.bring_to_front()
         await self.page.set_viewport_size({'width': width, 'height': height})
 
@@ -188,36 +198,47 @@ class BrowserCaptureMethod(BaseCaptureMethod):
                 except:
                     pass
 
-        logger.info(f'BrowserCaptureMethod start browser {width, height} {url}')
+        logger.info(f'BrowserCaptureMethod attach browser window {width, height}')
 
         for _ in range(20):
-            target_title = await self.page.title()
+            try:
+                target_title = await self.page.title()
+            except Exception as error:
+                logger.debug(f'BrowserCaptureMethod page.title failed: {error}')
+                target_title = ''
             if target_title:
                 title_pattern = re.compile(re.escape(target_title))
                 res = find_hwnd(title_pattern, ['chrome.exe', 'msedge.exe', 'chromium.exe'], width, height)
-                if res[1] > 0:
-                    self.hwnd = res[1]
-                    self.exe_full_path = res[2]
-                    self.x_offset = res[3]
-                    self.y_offset = res[4]
+            else:
+                res = (None, 0, None, 0, 0, 0, 0, [])
+            if res[1] <= 0:
+                # Titles from cloud pages may be blank while loading. Fall back
+                # to the largest Chromium window so WGC capture can still attach.
+                res = find_hwnd(None, ['chrome.exe', 'msedge.exe', 'chromium.exe'], width, height)
+            if res[1] > 0:
+                self.hwnd = res[1]
+                self.exe_full_path = res[2]
+                self.x_offset = res[3]
+                self.y_offset = res[4]
 
-                    if not self.update_window_geometry():
-                        await asyncio.sleep(0.1)
-                        continue
+                if not self.update_window_geometry():
+                    await asyncio.sleep(0.1)
+                    continue
 
-                    logger.info(
-                        f"Browser window '{target_title}' found: {self.hwnd} offsets: {self.x_offset},{self.y_offset} size: {self._size}")
-                    self.wgc_capture = BrowserWGC(self)
-                    if getattr(self, 'global_config', None) is not None:
-                        from ok.device.browser_audio import BrowserAudioMute
-                        self._audio_mute = BrowserAudioMute(
-                            self.page,
-                            lambda: win32gui.GetForegroundWindow() == self.hwnd,
-                            lambda: self.global_config.get_config('Basic Options').get(
-                                'Mute Game while in Background'), self.exit_event)
-                        self._audio_mute.start()
-                    break
+                logger.info(
+                    f"Browser window found: {self.hwnd} offsets: {self.x_offset},{self.y_offset} size: {self._size}")
+                self.wgc_capture = BrowserWGC(self)
+                if getattr(self, 'global_config', None) is not None:
+                    from ok.device.browser_audio import BrowserAudioMute
+                    self._audio_mute = BrowserAudioMute(
+                        self.page,
+                        lambda: win32gui.GetForegroundWindow() == self.hwnd,
+                        lambda: self.global_config.get_config('Basic Options').get(
+                            'Mute Game while in Background'), self.exit_event)
+                    self._audio_mute.start()
+                return
             await asyncio.sleep(0.5)
+        logger.warning('BrowserCaptureMethod could not attach to a Chromium window')
 
     def get_viewport_rect(self):
         """Return the visible page renderer's bounds in screen coordinates."""
@@ -281,6 +302,9 @@ class BrowserCaptureMethod(BaseCaptureMethod):
         if not windows_graphics_available():
             raise CaptureException("Windows Graphics Capture is not supported on this system.")
         if self.page is not None and not self.page.is_closed():
+            if self.wgc_capture is not None and self.hwnd > 0:
+                return
+            self.run_in_loop(self._attach_browser_window_async())
             return
         self.run_in_loop(self._start_browser_async())
 
@@ -338,8 +362,8 @@ class BrowserCaptureMethod(BaseCaptureMethod):
         return None
 
     def connected(self):
-        connected = self.page is not None and not self.page.is_closed()
-        return connected
+        return (self.page is not None and not self.page.is_closed()
+                and self.wgc_capture is not None and self.hwnd > 0)
 
 
 
