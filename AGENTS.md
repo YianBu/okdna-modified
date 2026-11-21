@@ -22,7 +22,7 @@
   排查过程、踩过的坑、设计取舍写进提交信息；那些留在与用户的对话里，需要留档就写进代码注释
   或本文件。
 - 本仓库的版本号（`v1.x`）与上游完全独立，不要拿上游的 tag 做比较或参考。本仓库自己的发布
-  序列到目前是 `v1.0.1`…`v1.2.8`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
+  序列到目前是 `v1.0.1`…`v1.2.9`（另有 CI 用的 `launcher-base-v1.0.1`，在远端，不是版本号）。
   本地 tag 已清理过，只剩本仓库自己的 `v1.x`；万一又看到上游 tag（换了机器、重新克隆等），
   别照它们编号，本地删掉即可。
 - 版本号**逢 10 进 1**：`v1.0.9` 之后是 `v1.1.0`（不是 `v1.0.10`），`v1.1.9` 之后是 `v1.2.0`，
@@ -30,7 +30,7 @@
   步骤，Release 被跳过），后来作为新版本正式发出，现在已经在用。
 - **「传云」的含义**：用户说「传云」（或「传云 git」「推送更新」）时，默认理解为「提交改动 ->
   本仓库版本号 +1 打 annotated tag -> 推送」：即 `git push mine master` 加
-  `git push mine <下一个版本号>`（当前下一个是 `v1.2.9`），让 CI 出 release 给 Launcher 用户。
+  `git push mine <下一个版本号>`（当前下一个是 `v1.3.0`），让 CI 出 release 给 Launcher 用户。
   推完把下一个版本号记住（再次「传云」时就再 +1）。**只推这一个 tag，绝不 `--tags`。**
 - **说「传云」时这一版已经实测过、是稳定版**：用户说「传云」时，不要再去跑测试、也不要回头质疑改动，直接提交 + 打 annotated tag + 推送就行。
 - 发布 = 打 `v*` tag 推到 `mine`：CI 按 tag 改写 `src/config.py` 的 version 并发布 release，
@@ -93,10 +93,13 @@
 ## 部署到本地（默认自动做）
 
 - 用户本地跑的是**源码方式**：`C:\Users\Administrator\Desktop\ok-dna` 里放了一份
-  `main.py` + `src`，和现成的 `assets`/`i18n`/`mod`/`configs` 共用；启动器是目录里的
+  `main.py` + `src` + `vendor`，和现成的 `assets`/`i18n`/`mod`/`configs` 共用；启动器是目录里的
   `start-source.bat`（用本机 Python 的 `pythonw` 跑源码）。目录里那个 `ok-dna.exe`
   是旧的冻结包，只在需要冻结版时才用。
-- **改完代码就自动同步过去**，不用等用户说「部署」：整份替换该目录下的 `src`，再覆盖
+- **UI 壳层**：`vendor/ok` 是从 ok-ww 3.8.9 本地化的新版 ok（顶部运行栏、左侧分组导航、
+  任务列表/详情页）。`main.py` 会把 `vendor` 插到 `sys.path` 最前面，优先于环境里的旧版 ok。
+  同步和打包时必须连 `vendor/ok` 一起带上；`.gitignore` 已放开 `vendor/**`。
+- **改完代码就自动同步过去**，不用等用户说「部署」：整份替换该目录下的 `src`、`vendor`，再覆盖
   `main.py`；动了中文文案就把 `i18n/zh_CN/LC_MESSAGES/ok.po`（和重编译的 `ok.mo`，见
   「文案与界面语言」）也覆盖过去。只动这几处，别碰 `configs`（用户配置）、`logs`、以及
   `mod` 里用户自己加的东西。
@@ -105,6 +108,7 @@
 - 同步脚本**别写成带中文的 .ps1**：apply_patch + GBK 终端写含中文的 ps1 会编码报错。用纯 ASCII
   的 Python 脚本（中文 key 用 \u 转义，shutil.rmtree + copytree + copy2），跑完把临时脚本删掉，
   别留在仓库里。
+- 手动备份统一放到 `C:\Users\Administrator\Desktop\okdna备份`，不要新增到 `ok-dna\backups`。
 - **云游戏窗口分辨率锁定**：globals.py 给 BrowserCaptureMethod.start_browser 打了补丁，并在 Globals 起一个后台线程，每 2 秒把 BrowserCaptureMethod 自己的 Edge 窗口锁回 config 里的 browser.resolution（1600×900）。原因是 ok 框架会把手动缩小后的实际尺寸写回 _size，之后一直停在缩小尺寸；窗口最小化时不动，最大化会先还原再改回。
 - 本地打包（PyInstaller，约 3~5 分钟）只在用户明确要求、或要出冻结版/发布时做；
   打包脚本是仓库里的 `build_exe.spec`。
