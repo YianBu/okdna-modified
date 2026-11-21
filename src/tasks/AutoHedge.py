@@ -20,9 +20,9 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         super().__init__(*args, **kwargs)
         self.icon = FluentIcon.FLAG
         self.name = "自动避险"
-        self.description = "半自动"
-        self.group_name = "半自动"
-        self.group_icon = FluentIcon.VIEW
+        self.description = "全自动"
+        self.group_name = "全自动（日常）"
+        self.group_icon = FluentIcon.CALENDAR
 
         self.setup_commission_config()
         self.setup_mission_start_config()

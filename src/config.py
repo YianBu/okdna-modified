@@ -213,6 +213,7 @@ config = {
         ["src.tasks.fullauto.Auto65ArtifactTask_Fast", "Auto65ArtifactTask_Fast"],
         ["src.tasks.fullauto.AutoExploration_Fast", "AutoExploration_Fast"],
         ["src.tasks.fullauto.AutoMediationTask_Fast", "AutoMediationTask_Fast"],
+        ["src.tasks.AutoHedge", "AutoHedge"],
         # 全自动（活动）
         ["src.tasks.fullauto.AutoMijinTask", "AutoMijinTask"],
         ["src.tasks.fullauto.AutoLetterOpenTask", "AutoLetterOpenTask"],
@@ -227,8 +228,8 @@ config = {
         ["src.tasks.AutoDefence", "AutoDefence"],
         ["src.tasks.AutoExploration", "AutoExploration"],
         ["src.tasks.AutoExcavation", "AutoExcavation"],
-        ["src.tasks.AutoHedge", "AutoHedge"],
         # 测试
+        ["src.tasks.fullauto.CharacterRotationTestTask", "CharacterRotationTestTask"],
         ["src.tasks.fullauto.AutoRecordTask", "AutoRecordTask"],
         ["src.tasks.fullauto.AutoDungeonActionTestTask", "AutoDungeonActionTestTask"],
         ["src.tasks.fullauto.AutoActionLogicScriptTask", "AutoActionLogicScriptTask"],

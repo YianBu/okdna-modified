@@ -65,6 +65,8 @@ class TestTaskHotkey(unittest.TestCase):
     def test_hotkey_of(self):
         self.assertEqual(hotkey_of(make_task(key="F8")), 'f8', '统一小写比较')
         self.assertEqual(hotkey_of(SimpleNamespace(config={})), DEFAULT_KEY.lower(), '没配就退回默认键')
+        self.assertEqual(hotkey_of(SimpleNamespace(config={}), default='F7'), 'f7',
+                         '不同任务的默认键可以不一样（操作录制默认 F7）')
         self.assertIsNone(hotkey_of(make_task(key=DISABLED)), '选「关闭」就不响应')
         self.assertIsNone(hotkey_of(make_task(key=None)), '显式空值也当关闭（老配置缺键才会走默认值）')
         self.assertIsNone(hotkey_of(make_task(key='')), '空值也不响应')
@@ -133,6 +135,39 @@ class TestTaskHotkey(unittest.TestCase):
         self.assertEqual(handle(executor, controller, task, keyboard.Key.f8,
                                 now=10.0 + TaskHotkey.DEBOUNCE_SECONDS + 0.01), 'start')
         self.assertEqual(len(controller.started), 2)
+
+    # ---- 操作录制：空闲时按键直接启动，在跑时把键留给录制任务自己 ----
+
+    def test_handle_starts_recorder_when_idle(self):
+        task = SimpleNamespace(name="操作录制", config={CONFIG_KEY: "F7"},
+                               hotkey_stops_running=False)
+        executor, controller = FakeExecutor(None), FakeController()
+        told = []
+        self.assertEqual(handle(executor, controller, task, keyboard.Key.f7,
+                                tell=told.append, now=10), 'start')
+        self.assertEqual(controller.started, [task], '不用先在界面上启动')
+        self.assertIn('启动', told[0])
+
+    def test_handle_leaves_running_recorder_to_itself(self):
+        task = SimpleNamespace(name="操作录制", config={CONFIG_KEY: "F7"},
+                               hotkey_stops_running=False)
+        executor, controller = FakeExecutor(task), FakeController()
+        told = []
+        self.assertEqual(handle(executor, controller, task, keyboard.Key.f7,
+                                tell=told.append, now=10), '')
+        self.assertEqual(executor.stopped, [], '录制中按键是开 / 停录制，不能把任务停了')
+        self.assertEqual(controller.started, [])
+        self.assertEqual(told, [], '这一层不抢录制任务的按键日志')
+
+    def test_debounce_is_per_task(self):
+        """F7 启动录制后，1 秒内按 F8 仍应能启动行动逻辑；两个键不能互相压掉。"""
+        recorder = SimpleNamespace(name="操作录制", config={CONFIG_KEY: "F7"},
+                                   hotkey_stops_running=False)
+        script = make_task(key="F8")
+        executor, controller = FakeExecutor(None), FakeController()
+        self.assertEqual(handle(executor, controller, recorder, keyboard.Key.f7, now=10.0), 'start')
+        self.assertEqual(handle(executor, controller, script, keyboard.Key.f8, now=10.1), 'start')
+        self.assertEqual(controller.started, [recorder, script])
 
 
 if __name__ == '__main__':

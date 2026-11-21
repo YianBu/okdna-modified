@@ -32,18 +32,23 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
 
     为什么不用外部的 keyboard_recorder.exe：它依赖系统热键/自己的窗口焦点，和程序
     自带的 Start/Stop 热键（F9）还容易冲突。这里直接挂程序已经在用的 pynput 全局
-    键盘监听（「快捷启动键」F8 就是同一套），不要求游戏窗口失焦或切回程序。
+    键盘监听（「快捷启动键」F8 / F7 就是同一套），不要求游戏窗口失焦或切回程序。
 
     用法：
-      1) 在「测试」里启动本任务；
-      2) 切到云游戏，按录制热键（默认 F7，可改）开始；走完路线再按一次停止。
+      1) 程序开着就能直接按「快捷启动键」（默认 F7）：本任务会启动并立即开始录；
+      2) 切到云游戏走完路线，再按一次录制热键（默认 F7）停止并保存。
          云游戏/Edge 常吞 F 键：F7 没反应时直接按 CapsLock 或 ScrollLock，
          这两个是内置备用热键，不占游戏按键；
-      3) 停止后保存成 mod/行动逻辑/<名字>.json；在「行动逻辑脚本测试」里选它、
-         按 F8 就能回放（改完 JSON 再按一次 F8 会重新读文件）。
+      3) 保存后默认自动结束任务，再按 F7 就能录下一段；生成的文件在
+         mod/行动逻辑/<名字>.json，在「行动逻辑脚本测试」里选它、按 F8 就能回放。
 
     录制时只收键盘，不收鼠标；云游戏里不要动视角。没录到按键时日志会说，不会静默。
     """
+
+    # 程序空闲时按这个键直接启动本任务；设置成「关闭」则只能从界面启动
+    DEFAULT_HOTKEY = "F7"
+    # 已在录制时，快捷键交给下面的 on_global_press 开 / 停录制，别再停整个任务
+    hotkey_stops_running = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,20 +60,27 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
 
         self.default_config.update({
             "文件名": DEFAULT_NAME,
+            "快捷启动键": self.DEFAULT_HOTKEY,
             "录制热键": "F7",
             "启动即录制": True,
+            "保存后退出": True,
             "方向键移动鼠标": True,
             "水平速度": 20,
             "垂直速度": 20,
             "长按间隔(秒)": 0.05,
             "视角倍率": 1.0,
         })
+        self.config_type["快捷启动键"] = {"type": "drop_down", "options": list(RECORD_KEYS)}
         self.config_type["录制热键"] = {"type": "drop_down", "options": list(RECORD_KEYS)}
         self.config_description.update({
             "文件名": "保存用的名字；重名会自动加 -2，不会覆盖已有文件",
+            "快捷启动键": "程序里没启动本任务时，按这个键直接启动并开始录；"
+                          "录制中用它停止并保存。F 键可能被浏览器吞掉",
             "录制热键": "在云游戏里按这个键开始/停止；F 键可能被浏览器吞掉。"
                         "F7 没反应时直接按 CapsLock / ScrollLock（始终可用）",
             "启动即录制": "任务一启动就开始录，省得进游戏后再按一次；做完按热键或点停止结束",
+            "保存后退出": "录完一次保存后自动结束任务，再按快捷启动键就能录下一段；"
+                          "想留在任务里连续补录就关掉",
             "方向键移动鼠标": "录制时用方向键微调视角（和外部录制器的「方向键控制」类似）；不想用就关掉",
             "水平速度": "方向键每次左右移动的鼠标像素",
             "垂直速度": "方向键每次上下移动的鼠标像素",
@@ -92,6 +104,7 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
         self._arrow_last = {}
         self._arrow_active = False
         self._arrow_thread = None
+        self._stop_after_save = False
 
     # ------------------------------------------------------------------
     # 生命周期
@@ -129,6 +142,10 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
                 self._beep_pending = False
                 self._beep()
             self.sleep(0.2)
+            if self._stop_after_save:
+                self._stop_after_save = False
+                self.log_info("操作录制已结束；再按快捷启动键可以录下一段")
+                return
 
     # ------------------------------------------------------------------
     # 全局键盘监听
@@ -249,6 +266,8 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
             self._start = time.perf_counter()
             self._recording = True
             self._last_key_name = None
+            # 按键启动任务时，F7 可能还在连发；记下开始时间，避免连发立刻把录制关掉
+            self._last_toggle = time.perf_counter()
         self._arrow_active = True
         self._arrow_thread = threading.Thread(target=self._arrow_loop, daemon=True)
         self._arrow_thread.start()
@@ -295,6 +314,8 @@ class AutoRecordTask(DNAOneTimeTask, BaseDNATask):
         self.log_info(f"录制完成：{len(actions)} 个事件，约 {duration:.2f} 秒")
         self.log_info(f"内置步骤已保存：{steps_path}")
         self.log_info_notify(f"操作录制已保存：{steps_path.stem}，共 {len(actions)} 个事件")
+        if self.config.get("保存后退出", True):
+            self._stop_after_save = True
 
     # ------------------------------------------------------------------
     # 方向键 -> 鼠标相对移动（和外部录制器的「方向键控制」类似）

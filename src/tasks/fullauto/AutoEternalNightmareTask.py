@@ -29,6 +29,8 @@ from src.dna_ui.Defs import COORD
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
 from src.tasks.CommissionsTask import CommissionsTask
 from src.tasks.BaseCombatTask import BaseCombatTask
+from src.char.CharacterRotation import CHARACTER_ROTATIONS, rotations_for
+from src.char.CharacterRotationMixin import CharacterRotationMixin
 
 logger = Logger.get_logger(__name__)
 
@@ -88,17 +90,7 @@ COMBAT_TIMEOUT_DEFAULT = 180
 #            （短按战技 / 长按战技 / 终结技 / 魔灵支援 / 普攻 / 重击）
 #   loop:    True  = steps 一直循环放；循环型每进一次主循环只走一步，循环期间还能继续判界面
 #            False = steps 整串放一遍就停
-# 走位和主控角色无关（所有角色共用上面那段录制时序），角色之间只差这张表。
-CHARACTER_ROTATIONS = {
-    # 法露茜：起手序列 = 锁定（等 0.5 秒）-> 连按 5 下终结技（冷却中游戏会忽略；哪一下被
-    # 吃掉，后面几下补上；最后一个后面留 1 秒等演出）。
-    # 循环序列 = 一直连按普攻、每 3 秒连按两下战技、每 20 秒放一次终结技。
-    "法露茜": {"opening": (("锁定", 0.5), ("终结技", 0.1), ("终结技", 0.1), ("终结技", 0.1),
-                           ("终结技", 0.1), ("终结技", 1.0)),
-               "spam": "普攻",
-               "timed": ((3.0, ("短按战技", "短按战技")),
-                         (20.0, ("终结技",)))},
-}
+# 走位和主控角色无关；角色表见 src/char/CharacterRotation.py
 
 # 「无」：不套角色手法，直接执行「全局技能设定」的技能配置
 NO_CHARACTER = "无"
@@ -126,7 +118,8 @@ HEAVY_ATTACK_HOLD = 1.5
 TIMED_BURST_GAP = 0.1
 
 
-class AutoEternalNightmareTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class AutoEternalNightmareTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+    delay_timed_ultimate = True
     """全自动「永恒梦魇」：活动界面点开始 -> 走位开战 -> 按主控角色放技能 -> 结算重开。
 
     只在「永恒梦魇」活动界面才启动（起手判据见 ensure_activity_interface）；
@@ -143,6 +136,7 @@ class AutoEternalNightmareTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.group_icon = FluentIcon.GAME
 
         # 这个模式没有「挂机模式」那套移动/复位配置：只有轮次 + 超时重启
+        self.rotation_table = rotations_for("eternal_nightmare")
         self.default_config.update({
             "轮次": 0,
             COMBAT_TIMEOUT_KEY: COMBAT_TIMEOUT_DEFAULT,
@@ -151,7 +145,7 @@ class AutoEternalNightmareTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         })
         self.config_type["主控角色"] = {
             "type": "drop_down",
-            "options": list(CHARACTER_ROTATIONS) + [NO_CHARACTER, CUSTOM_CHARACTER],
+            "options": list(self.rotation_table) + [NO_CHARACTER, CUSTOM_CHARACTER],
         }
         self.config_description.update({
             "轮次": "连打多少轮，0 = 无限循环",
@@ -728,4 +722,18 @@ class AutoEternalNightmareTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                 self.mouse_up()
         else:
             raise ValueError("未知技能动作: %s" % action)
+
+    # 角色循环统一走共享执行器（src/char/CharacterRotationMixin.py）：
+    current_character = CharacterRotationMixin.current_character
+    plan_has_lock = CharacterRotationMixin.plan_has_lock
+    setup_character = CharacterRotationMixin.setup_character
+    parse_custom_steps = CharacterRotationMixin.parse_custom_steps
+    reset_sequence_state = CharacterRotationMixin.reset_sequence_state
+    play_character_sequence = CharacterRotationMixin.play_character_sequence
+    play_timed_rotation = CharacterRotationMixin.play_timed_rotation
+    tick_charge_shot = CharacterRotationMixin.tick_charge_shot
+    do_charge_refresh = CharacterRotationMixin.do_charge_refresh
+    read_charge_percent = CharacterRotationMixin.read_charge_percent
+    describe_steps = CharacterRotationMixin.describe_steps
+    release_character_action = CharacterRotationMixin.release_character_action
 

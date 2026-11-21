@@ -7,6 +7,8 @@ from src.dna_ui.Defs import COORD
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
 from src.tasks.BaseCombatTask import BaseCombatTask
 from src.tasks.CommissionsTask import CommissionsTask
+from src.char.CharacterRotation import CHARACTER_ROTATIONS, rotations_for
+from src.char.CharacterRotationMixin import CharacterRotationMixin
 
 logger = Logger.get_logger(__name__)
 
@@ -16,23 +18,10 @@ logger = Logger.get_logger(__name__)
 #          取值沿用「全局技能设定」那套：长按战技 / 短按战技 / 终结技 / 魔灵支援 / 普攻 / 重击
 #   loop:  False = 进本后整串按顺序放一遍就停（每开始新一轮再放一次）
 #          True  = 一直循环放；循环型每进一次主循环只走一步，这样循环期间还能继续判界面
-CHARACTER_ROTATIONS = {
-    # 止流：战技 -> 停1秒 -> 长按战技(1秒) -> 停1秒 -> 终结技，一直循环
-    "止流": {
-        "loop": True,
-        "steps": (("短按战技", 1.0), ("长按战技", 1.0), ("终结技", 1.0)),
-    },
-    # 伊薇：战技*7（每个后面停1秒），放一遍
-    "伊薇": {
-        "loop": False,
-        "steps": (("短按战技", 1.0), ("短按战技", 1.0), ("短按战技", 1.0),
-                  ("短按战技", 1.0), ("短按战技", 1.0), ("短按战技", 1.0),
-                  ("短按战技", 1.0)),
-    },
-}
+# 角色表见 src/char/CharacterRotation.py
 
 # 角色的默认选择：取第一个角色配置
-DEFAULT_CHARACTER = next(iter(CHARACTER_ROTATIONS))
+DEFAULT_CHARACTER = "止流"
 
 # 「使用角色」里额外的一项：技能与等待全由用户自己写（见下面的「自定义序列」）
 CUSTOM_CHARACTER = "自定义"
@@ -96,7 +85,8 @@ LV_MIN_BOTTOM_RATIO = 0.9  # 框底要落在屏高下面 10% 以内
 
 # 整屏 OCR 的节流间隔（秒）：OCR 本身比这慢时以 OCR 为准
 OCR_INTERVAL = 0.5
-class AutoMijinTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+    character_config_key = "使用角色"
     """全自动「迷津」（肉鸽模式）。
 
     一轮的流程（按用户给的实拍图）：
@@ -141,13 +131,14 @@ class AutoMijinTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         })
 
         # 角色手法：每个角色一套自己的技能序列，和「全局技能设定」无关
+        self.rotation_table = rotations_for("mijin")
         self.default_config.update({
             "使用角色": DEFAULT_CHARACTER,
             CUSTOM_SEQUENCE_KEY: DEFAULT_CUSTOM_SEQUENCE,
         })
         self.config_type["使用角色"] = {
             "type": "drop_down",
-            "options": list(CHARACTER_ROTATIONS) + [CUSTOM_CHARACTER],
+            "options": list(self.rotation_table) + [CUSTOM_CHARACTER],
         }
         self.config_description.update({
             "使用角色": "选择角色后按该角色的手法释放技能，不走全局技能计时器",
@@ -242,12 +233,12 @@ class AutoMijinTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         """局内：先按「挂机模式」处理一次位置（默认开局向前走 1 秒），再按角色手法放技能。"""
         if not self.move_on_begin():
             return
-        if self.character_steps is None:
+        if not self.has_character_rotation():
             # 配置里的角色名没有对应手法：退回全局技能计时器，保证任务还能跑起来
             self.fallback_skill_tick()
             return
         self.settle_before_sequence()
-        self.run_character_skill()
+        self.play_character_sequence()
 
     def mission_settle(self):
         """「进本等待(秒)」配置：进本后等几秒再放技能。"""
@@ -544,3 +535,17 @@ class AutoMijinTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         """「自动前进到开战」在这里超时：这个模式没到结算页就不该主动放弃，继续挂机。"""
         self.log_info("自动前进到开战超时，不再前进，继续挂机")
         return True
+
+    # 角色循环统一走共享执行器（src/char/CharacterRotationMixin.py）：
+    current_character = CharacterRotationMixin.current_character
+    plan_has_lock = CharacterRotationMixin.plan_has_lock
+    setup_character = CharacterRotationMixin.setup_character
+    parse_custom_steps = CharacterRotationMixin.parse_custom_steps
+    reset_sequence_state = CharacterRotationMixin.reset_sequence_state
+    play_character_sequence = CharacterRotationMixin.play_character_sequence
+    play_timed_rotation = CharacterRotationMixin.play_timed_rotation
+    tick_charge_shot = CharacterRotationMixin.tick_charge_shot
+    do_charge_refresh = CharacterRotationMixin.do_charge_refresh
+    read_charge_percent = CharacterRotationMixin.read_charge_percent
+    describe_steps = CharacterRotationMixin.describe_steps
+    release_character_action = CharacterRotationMixin.release_character_action

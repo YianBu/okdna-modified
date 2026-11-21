@@ -6,6 +6,8 @@ from ok import Logger, TaskDisabledException
 from src.tasks.DNAOneTimeTask import DNAOneTimeTask
 from src.tasks.CommissionsTask import CommissionsTask
 from src.tasks.BaseCombatTask import BaseCombatTask
+from src.char.CharacterRotation import CHARACTER_ROTATIONS, rotations_for
+from src.char.CharacterRotationMixin import CharacterRotationMixin
 from src.dna_ui.Defs import COORD
 
 # 「已开战」的判据框（Defs.SCREEN_BOX 里的名字），按颜色用
@@ -113,17 +115,7 @@ STAGE_PENDING_HOLD = 8.0
 # opening 可以单独使用：只放起手、不配循环就整局只放这一遍（伊薇）。
 # reset_on_stage_switch: 可选，默认 True。切层后是否重新从 opening 开始；
 #                         False = 整局只在开局放一次，切层后不再释放任何技能（伊薇）。
-# 走位和主控角色无关（所有角色共用上面那段录制时序），角色之间只差这张表。
-CHARACTER_ROTATIONS = {
-    # 止流：起手序列 = 长按战技 -> 短按战技 -> 终结技 ->（等 4 秒）-> 短按战技 -> 短按战技
-    # -> 终结技，其余每个动作之后等 1 秒（等演出/后摇走完）。
-    # 循环序列 = 每隔 1.4 秒放一次终结技。
-    "止流": {"opening": (("长按战技", 1.0), ("短按战技", 1.0), ("终结技", 4.0),
-                         ("短按战技", 1.0), ("短按战技", 1.0), ("终结技", 1.0)),
-             "timed": ((1.4, ("终结技",)),)},
-    # 伊薇：整局开局只放一次终结技，之后（包括切层后）都不再释放技能。
-    "伊薇": {"opening": (("终结技", 1.0),), "reset_on_stage_switch": False},
-}
+# 走位和主控角色无关；角色表见 src/char/CharacterRotation.py
 
 # 「无」：不套角色手法，直接执行「全局技能设定」的技能配置
 NO_CHARACTER = "无"
@@ -151,7 +143,7 @@ HEAVY_ATTACK_HOLD = 1.5
 TIMED_BURST_GAP = 0.1
 
 
-class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
+class AutoTheatreTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTask):
     """自动沉浸式戏剧（不朽剧目·勇者征程）。
 
     关卡结构：一个关卡 5 层（第 1~5 试炼），只有**第 1 层**要走到机关按 F 开战；
@@ -181,6 +173,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         self.group_name = "全自动（活动）"
         self.group_icon = FluentIcon.GAME
 
+        self.rotation_table = rotations_for("theatre")
         self.setup_commission_config()
         self.setup_mission_start_config()
         # 这个模式没有轮次和战斗超时：挂机一直打到游戏自己判负/通关进结算页，层数用「打几层」控制
@@ -195,7 +188,7 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         })
         self.config_type["主控角色"] = {
             "type": "drop_down",
-            "options": list(CHARACTER_ROTATIONS) + [NO_CHARACTER, CUSTOM_CHARACTER],
+            "options": list(self.rotation_table) + [NO_CHARACTER, CUSTOM_CHARACTER],
         }
         self.config_description.update({
             "打几层": "打几层，0 = 无限循环",
@@ -949,3 +942,17 @@ class AutoTheatreTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
         if not self.wait_until(left_result, time_out=time_out, raise_if_not_found=False):
             raise Exception(f'点了结算页的按钮之后 {time_out} 秒还停在结算页')
+
+    # 角色循环统一走共享执行器（src/char/CharacterRotationMixin.py）：
+    current_character = CharacterRotationMixin.current_character
+    plan_has_lock = CharacterRotationMixin.plan_has_lock
+    setup_character = CharacterRotationMixin.setup_character
+    parse_custom_steps = CharacterRotationMixin.parse_custom_steps
+    reset_sequence_state = CharacterRotationMixin.reset_sequence_state
+    play_character_sequence = CharacterRotationMixin.play_character_sequence
+    play_timed_rotation = CharacterRotationMixin.play_timed_rotation
+    tick_charge_shot = CharacterRotationMixin.tick_charge_shot
+    do_charge_refresh = CharacterRotationMixin.do_charge_refresh
+    read_charge_percent = CharacterRotationMixin.read_charge_percent
+    describe_steps = CharacterRotationMixin.describe_steps
+    release_character_action = CharacterRotationMixin.release_character_action

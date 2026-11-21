@@ -299,6 +299,15 @@
             "width": 1920,
             "date_captured": null,
             "id": 51
+        },
+        {
+            "license": 0,
+            "url": null,
+            "file_name": "images/17_syr_start_btn.png",
+            "height": 900,
+            "width": 1600,
+            "date_captured": null,
+            "id": 52
         }
     ],
     "annotations": [
@@ -1228,6 +1237,21 @@
             "iscrowd": 0,
             "ignore": 0,
             "segmentation": []
+        },
+        {
+            "id": 69,
+            "image_id": 52,
+            "category_id": 69,
+            "bbox": [
+                1274,
+                801,
+                25,
+                24
+            ],
+            "area": 600,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
         }
     ],
     "categories": [
@@ -1554,6 +1578,11 @@
         {
             "id": 68,
             "name": "en_start_btn",
+            "supercategory": ""
+        },
+        {
+            "id": 69,
+            "name": "syr_start_btn_17",
             "supercategory": ""
         }
     ]
