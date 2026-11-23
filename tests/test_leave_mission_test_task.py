@@ -23,7 +23,7 @@ class TestLeaveMissionTestTask(TaskTestCase):
     _PATCHED = ('in_team', 'next_frame', 'sleep', 'soundBeep', 'log_info',
                 'log_info_notify', 'config', 'give_up_mission', 'quit_mission',
                 'open_in_mission_menu', 'describe_screen', 'wait_until',
-                'ensure_game_foreground')
+                'ensure_game_foreground', 'leave_once')
 
     def setUp(self):
         self._saved = {name: getattr(self.task, name) for name in self._PATCHED}
@@ -101,14 +101,21 @@ class TestLeaveMissionTestTask(TaskTestCase):
         # 配置 5 秒会被下限抬到 30 秒
         self.assertEqual(calls, [{"time_out": 30.0, "raise_if_not_found": False}])
 
-    def test_failure_beeps_and_stops(self):
-        beeps = []
+    def test_failure_retries_instead_of_stopping(self):
+        """退本失败不再直接结束：等 2 秒重试；成功那次才收尾并响一声。"""
+        calls, beeps = [], []
         self.task.config = {"退本方式": LEAVE_GIVE_UP, "测试局数": 1, "超时时间(秒)": 30}
         self.task.in_team = lambda *a, **k: True
-        self.task.give_up_mission = lambda timeout=0: False
         self.task.soundBeep = lambda *a, **k: beeps.append(1)
+
+        def leave_once(method):
+            calls.append(method)
+            return len(calls) > 1  # 第一次失败，第二次成功
+
+        self.task.leave_once = leave_once
         self.task.do_run()
-        self.assertEqual(beeps, [1])
+        self.assertEqual(calls, [LEAVE_GIVE_UP, LEAVE_GIVE_UP], '失败后应重试')
+        self.assertEqual(beeps, [1], '成功完成后才响一声')
 
 
 if __name__ == '__main__':
