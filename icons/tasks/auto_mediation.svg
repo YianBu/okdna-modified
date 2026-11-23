@@ -1,18 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0D9488"/>
-      <stop offset="1" stop-color="#FDE68A"/>
+    <linearGradient id="p1" x1="18" y1="14" x2="46" y2="50">
+      <stop stop-color="#8FDBE3"/>
+      <stop offset="1" stop-color="#12707B"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 7 57 32 32 57 7 32Z" fill="url(#g)" fill-opacity=".08" stroke="url(#g)" stroke-width="2.6"/>
-  <circle cx="32" cy="32" r="14" fill="none" stroke="url(#g)" stroke-width="2.6"/>
-  <path d="M32 18a7 7 0 0 1 0 14 7 7 0 0 1 0 14" fill="none" stroke="url(#g)" stroke-width="2.8"/>
-  <path d="M32 18a7 7 0 0 0 0 14 7 7 0 0 0 0 14" fill="none" stroke="url(#g)" stroke-width="2.8" opacity=".55"/>
-  <circle cx="32" cy="25" r="2.2" fill="#FFF7D6"/>
-  <circle cx="32" cy="39" r="2.2" fill="#fff" opacity=".85"/>
-  <path d="M7 32H2M57 32h5M32 7V2M32 57v5" stroke="url(#g)" stroke-width="2.2"
-        stroke-linecap="round" opacity=".7"/>
-
+  <!-- outer diamond frame -->
+  <path d="M32 10 L52 32 L32 54 L12 32 Z" fill="#FFFFFF" stroke="#1B9AA8" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M32 15 L47 32 L32 49 L17 32 Z" fill="none" stroke="#8FDBE3" stroke-width="1" opacity="0.8"/>
+  <!-- top & bottom gems on the frame -->
+  <path d="M32 10.5 L34 13 L32 15.5 L30 13 Z" fill="#E7F7F9" stroke="#1B9AA8" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M32 48.5 L34 51 L32 53.5 L30 51 Z" fill="#E7F7F9" stroke="#1B9AA8" stroke-width="1.3" stroke-linejoin="round"/>
+  <!-- center ring with helix -->
+  <circle cx="32" cy="32" r="8" fill="#F3FBFC" stroke="#1B9AA8" stroke-width="1.8"/>
+  <g stroke-linecap="round" fill="none">
+    <path d="M32 25.5 C 28.5 28, 28.5 30.5, 32 32.5 C 35.5 34.5, 35.5 37, 32 38.5" stroke="url(#p1)" stroke-width="1.7"/>
+    <path d="M32 25.5 C 35.5 28, 35.5 30.5, 32 32.5 C 28.5 34.5, 28.5 37, 32 38.5" stroke="url(#p1)" stroke-width="1.7" opacity="0.5"/>
+    <path d="M28.8 28.5 L35.2 28.5" stroke="#8FDBE3" stroke-width="1.3"/>
+    <path d="M28.8 35.5 L35.2 35.5" stroke="#8FDBE3" stroke-width="1.3"/>
+  </g>
+  <!-- balance pivots left & right -->
+  <circle cx="18.5" cy="32" r="1.7" fill="#1B9AA8"/>
+  <circle cx="45.5" cy="32" r="1.7" fill="#1B9AA8"/>
 </svg>

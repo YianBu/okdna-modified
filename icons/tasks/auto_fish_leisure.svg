@@ -1,20 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#14B8A6"/>
-      <stop offset="1" stop-color="#BEF264"/>
+    <linearGradient id="p1" x1="44" y1="8" x2="58" y2="46">
+      <stop stop-color="#96DFD5"/>
+      <stop offset="1" stop-color="#14776D"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 8c13 0 24 10 24 24S45 56 32 56 8 46 8 32 19 8 32 8z" fill="none"
-        stroke="url(#g)" stroke-width="2.2" opacity=".45"/>
-  <path d="M14 34c6-9 17-10 25-3 2 2 4 2 6 1M14 34c6 9 17 10 25 3 2-2 4-2 6-1"
-        fill="none" stroke="url(#g)" stroke-width="2.8" stroke-linecap="round"/>
-  <path d="M45 31l6-4v10z" fill="#FDE68A"/>
-  <circle cx="22" cy="32" r="1.8" fill="#FDE68A"/>
-  <path d="M46 9 28 28M43 7l5 4" stroke="url(#g)" stroke-width="2.8" stroke-linecap="round"/>
-  <path d="M34 29v9" stroke="#FDE68A" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="34" cy="40" r="3.2" fill="#FDE68A" stroke="#fff" stroke-width=".9"/>
-  <path d="M18 49c4 2 8 2 12 0" stroke="url(#g)" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+  <!-- fishing rod -->
+  <path d="M9 57 L50 13" fill="none" stroke="#1FA89B" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M14 52 L21 45" stroke="url(#p1)" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="26" cy="39.5" r="2.6" fill="#FFFFFF" stroke="#1FA89B" stroke-width="1.4"/>
+  <circle cx="26" cy="39.5" r="0.9" fill="#1FA89B"/>
+  <circle cx="50" cy="13" r="1.6" fill="none" stroke="#1FA89B" stroke-width="1.3"/>
 
+  <!-- helix fishing line -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M51.5 15.5 C 56 20, 56 25, 51.5 29.5 C 47 34, 47 38, 51.5 42" stroke="url(#p1)" stroke-width="1.7"/>
+    <path d="M51.5 15.5 C 47 20, 47 25, 51.5 29.5 C 56 34, 56 38, 51.5 42" stroke="url(#p1)" stroke-width="1.7" opacity="0.5"/>
+    <path d="M49.5 20.5 L53.5 20.5" stroke="#96DFD5" stroke-width="1.3"/>
+    <path d="M49.5 25 L53.5 25" stroke="#96DFD5" stroke-width="1.3"/>
+    <path d="M49.5 34 L53.5 34" stroke="#96DFD5" stroke-width="1.3"/>
+    <path d="M49.5 38 L53.5 38" stroke="#96DFD5" stroke-width="1.3"/>
+  </g>
+
+  <!-- hook -->
+  <path d="M51.5 42 C 51.5 46, 49 47.5, 47 46.5" fill="none" stroke="#1FA89B" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="47" cy="46.5" r="0.8" fill="#1FA89B"/>
+
+  <!-- leaping fish -->
+  <path d="M45.5 46.5 C 43 41, 34.5 40.5, 28.5 45 C 34.5 50.5, 43 51.5, 45.5 46.5 Z"
+        fill="#FFFFFF" stroke="#1FA89B" stroke-width="1.9" stroke-linejoin="round"/>
+  <path d="M29 45 L22 41.5 L24.5 45 L22 48.5 Z" fill="#E8F8F6" stroke="#1FA89B" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M36 43.5 C 35 45, 35 46.5, 36 48" fill="none" stroke="#96DFD5" stroke-width="1.1" opacity="0.8"/>
+  <circle cx="41" cy="44.5" r="1.6" fill="#FFFFFF" stroke="#1FA89B" stroke-width="1.3"/>
+  <circle cx="41" cy="44.5" r="0.7" fill="#1FA89B"/>
+
+  <!-- ripples -->
+  <path d="M10 56.5 C 14.5 54.5, 19 54.5, 23.5 56.5 C 28 58.5, 32.5 58.5, 37 56.5" fill="none" stroke="#96DFD5" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
 </svg>

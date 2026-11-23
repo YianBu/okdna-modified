@@ -73,7 +73,7 @@ class AutoMediationTask_Fast(AutoExpulsion):
             "撤离点延迟(秒)": DEFAULT_EVAC_DELAY,
         })
         self.config_description.update({
-            "超时时间": "进本后超过这么久还没结束就放弃并重开",
+            "超时时间": "进本后超过这么久还没结束就放弃并重开（0 = 不限制）",
             "进本等待(秒)": "进本可控后先等这么久再开始开场移动；默认 1 秒",
             "撤离点延迟(秒)": "确认可前往撤离点后，等这么久再按魔灵支援；默认 1 秒",
         })
@@ -272,14 +272,17 @@ class AutoMediationTask_Fast(AutoExpulsion):
 
     def timeout_seconds(self):
         try:
-            return max(1.0, float(self.config.get("超时时间", DEFAULT_TIMEOUT)))
+            return max(0.0, float(self.config.get("超时时间", DEFAULT_TIMEOUT)))
         except (TypeError, ValueError):
             return float(DEFAULT_TIMEOUT)
 
     def timeout_expired(self, started_at, now=None):
         if not started_at:
             return False
+        timeout = self.timeout_seconds()
+        if not timeout:
+            return False
         now = time.time() if now is None else now
-        return now - started_at >= self.timeout_seconds()
+        return now - started_at >= timeout
 
 

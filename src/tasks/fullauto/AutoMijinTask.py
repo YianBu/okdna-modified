@@ -113,7 +113,7 @@ class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, Bas
         # 一轮打太久的兜底：超时就主动退本、重开一轮。
         # 放在最前面，界面上这一项就排在「挂机模式」之前（配置顺序 = default_config 的插入顺序）
         self.default_config.update({"超时时间": ROUND_TIMEOUT_SECONDS})
-        self.config_description.update({"超时时间": "超时后将重启任务"})
+        self.config_description.update({"超时时间": "超时后将重启任务（0 = 不限制）"})
 
         self.setup_mission_start_config()
         # 肉鸽里没有站在原地的空间，去掉「随机游走」这条用不上的配置
@@ -259,7 +259,7 @@ class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, Bas
     def round_timeout(self):
         """「超时时间」配置：一轮最多打多少秒。"""
         try:
-            return max(1, int(self.config.get("超时时间", ROUND_TIMEOUT_SECONDS)))
+            return max(0, int(self.config.get("超时时间", ROUND_TIMEOUT_SECONDS)))
         except (TypeError, ValueError):
             return ROUND_TIMEOUT_SECONDS
 
@@ -267,7 +267,8 @@ class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, Bas
         """这一轮是不是打太久了（只在已经进本放过技能、还没退出这一轮时为真）。"""
         if not self.sequence_done or not self.round_start_time:
             return False
-        return time.time() - self.round_start_time >= self.round_timeout()
+        timeout = self.round_timeout()
+        return bool(timeout) and time.time() - self.round_start_time >= timeout
 
     def handle_timeout(self):
         """超时兜底：主动退本重开（走和"打完一关"一样的退出流程）。
@@ -298,10 +299,16 @@ class AutoMijinTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, Bas
             return
         self.press_esc()
 
+    def esc_menu_open(self):
+        """局内 ESC 菜单是否已经打开（整屏 OCR 认「退出结算」或菜单里的按钮）。"""
+        self.update_screen_text()
+        return self.find_text(TEXT_ESC_EXIT) or self.find_any(TEXT_ESC_MENU)
+
     def press_esc(self):
         self.pending_esc = False
         self.log_info("打完一关，按 ESC 打开菜单")
-        self.send_key("esc", after_sleep=0.5)
+        # 走 BaseDNATask 的统一 ESC 兜底：第一次没反应会点画面取焦点再重试
+        self.press_esc_until(self.esc_menu_open, time_out=5)
         self.next_ocr = 0.0
 
     def handle_esc_exit(self):

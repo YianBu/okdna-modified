@@ -84,7 +84,8 @@ class AutoExpulsion(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.runtime_state["start_time"] = time.time()
             self.count += 1
 
-        if time.time() - self.runtime_state["start_time"] >= self.config.get("超时时间", 120):
+        timeout = self.config.get("超时时间", 120)
+        if timeout and time.time() - self.runtime_state["start_time"] >= timeout:
             logger.info("已经超时，重开任务...")
             self.give_up_mission()
             return

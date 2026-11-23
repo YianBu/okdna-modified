@@ -133,12 +133,12 @@ class NumberEditor(ConfigEditor):
         else:
             if 'min' in type_info:
                 minimum = type_info['min']
-            elif not default_value:
-                minimum = 0
             elif default_value < 0:
                 minimum = -999999
             else:
-                minimum = 1
+                # 0 是本项目常用的「关闭/不限制」取值（超时重启、重复次数、打几次…）。
+                # 默认值 > 0 也允许调到 0；确实不能为 0 的配置用 {"min": 1} 显式声明。
+                minimum = 0
             maximum = type_info.get('max', 99999999)
             step = type_info.get('step', 1)
         self.spin_box = NumberBox(config.get(key) or 0, minimum, maximum, step, decimals=decimals)

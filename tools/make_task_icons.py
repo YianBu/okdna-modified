@@ -1,4 +1,9 @@
-"""Generate game-style colored emblems for the ok-dna task list."""
+"""Generate game-style colored emblems for the ok-dna task list.
+
+Legacy: the icons under ``icons/`` are now hand-curated SVGs with a
+transparent background. Running this script overwrites them with the older
+generated set, so only run it when that variant is wanted.
+"""
 
 import sys
 from pathlib import Path

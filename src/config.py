@@ -150,6 +150,13 @@ config = {
         # 且高度要留给 Edge 的标签栏/地址栏；1920x1080 屏幕用 1600x900 最稳。
         "resolution": (1600, 900),
         "nick": "云游戏(需要Win11并安装Edge)",
+        # 云游戏自己会请求 pointer lock。假的 pointer lock 只会让页面以为锁上了，
+        # 系统鼠标指针仍然可见，Alt/键盘焦点状态也会和真实浏览器对不上；
+        # 这里关闭它，让页面走真实的 pointer lock。
+        "fake_pointer_lock": False,
+        # 云游戏在 pointer lock 期间会调用 navigator.keyboard.lock()，把 Alt+Tab /
+        # Win / Ctrl 截给页面。这里假装锁成功，实际把键盘留给 Windows。
+        "fake_keyboard_lock": True,
     },
     "start_timeout": 120,  # default 60
     "window_size": {  # ok-script窗口大小
@@ -253,6 +260,7 @@ config = {
         ["src.tasks.fullauto.AutoRecordTask", "AutoRecordTask"],
         ["src.tasks.fullauto.AutoDungeonActionTestTask", "AutoDungeonActionTestTask"],
         ["src.tasks.fullauto.AutoActionLogicScriptTask", "AutoActionLogicScriptTask"],
+        ["src.tasks.fullauto.AutoLeaveMissionTestTask", "AutoLeaveMissionTestTask"],
         ["src.tasks.fullauto.ImportTask", "ImportTask"],
         # 全局配置放在最后，打开任务页时默认选中第一个可运行任务
         ["src.tasks.config.CommissionConfig", "CommissionConfig"],

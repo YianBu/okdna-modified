@@ -354,9 +354,8 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
                 # 结算界面：点「退出委托」回列表
                 self.click_ui_coord(COORD.RESULT_QUIT, name="letter_result_quit", after_sleep=1)
                 continue
-            # 图2 开始界面（或过场）：按 ESC 回列表
-            self.send_key("esc")
-            if self.wait_until(self.is_letter_board, time_out=2, raise_if_not_found=False):
+            # 图2 开始界面（或过场）：按 ESC 回列表（共用焦点兜底）
+            if self.press_esc_until(self.is_letter_board, time_out=3, click_fallback=False):
                 self._entered_mission = False
                 return True
         self.notify_stuck("撤离副本超时，没能回到委托密函列表")
@@ -581,8 +580,9 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
         while time.time() < deadline:
             if self.find_result_again_btn():
                 self.click_ui_coord(COORD.RESULT_QUIT, name="letter_result_quit", after_sleep=1)
-            else:
-                self.send_key("esc")
+            elif self.press_esc_until(self.is_letter_board, time_out=3, click_fallback=False):
+                self._entered_mission = False
+                return True
             if self.wait_until(self.is_letter_board, time_out=2, raise_if_not_found=False):
                 self._entered_mission = False
                 return True
@@ -763,11 +763,8 @@ class AutoLetterOpenTask(DungeonActionMixin, AutoExpulsion):
         self._click_detected(target, name="keepalive_task", after_sleep=0.8)
         # 不管点进去成没成，都按一下 ESC 收尾：进去了就返回列表，没点动也无害
         self.wait_until(self.find_start_interface, time_out=5, raise_if_not_found=False)
-        self.send_key("esc")
-        if not self.wait_until(self.is_letter_board, time_out=8, raise_if_not_found=False):
-            self.log_info("保活后没能直接回到列表，再按一次 ESC")
-            self.send_key("esc")
-            self.wait_until(self.is_letter_board, time_out=8, raise_if_not_found=False)
+        if not self.press_esc_until(self.is_letter_board, time_out=8, click_fallback=False):
+            self.log_info("保活后没能直接回到列表")
 
     def pick_drive_away(self):
         """按优先级挑一个任务点进去，成功返回 True。

@@ -747,6 +747,92 @@ class BaseDNATask(BaseTask):
                 key_press(win32con.VK_MENU)
                 self.hwnd.bring_to_front()
             self.sleep(0.5)
+
+    def ensure_game_foreground(self):
+        """让游戏拿到键盘焦点。
+
+        浏览器模式只做页面级焦点模拟，不把窗口拉到前台（避免切走用户正在用的
+        桌面）；真正收不到 ESC 时由 click_game_to_focus 点一下画面。本机窗口
+        在后台时才带到前台。
+        """
+        if self.is_browser():
+            interaction = getattr(self.executor, 'interaction', None)
+            focus_page = getattr(interaction, 'focus_page', None)
+            if callable(focus_page):
+                try:
+                    focus_page()
+                except Exception as e:
+                    logger.warning(f"focus browser page failed: {e}")
+            return False
+        hwnd = self.hwnd
+        if hwnd is None:
+            return False
+        activated = False
+        try:
+            foreground = hwnd.is_foreground()
+        except Exception as e:
+            logger.warning(f"check game foreground failed: {e}")
+            foreground = False
+        if not foreground:
+            self.log_info("游戏窗口在后台，先激活窗口")
+            try:
+                self.try_bring_to_front()
+            except Exception as e:
+                logger.warning(f"bring game window to front failed: {e}")
+            activated = True
+        interaction = getattr(self.executor, 'interaction', None)
+        activate = getattr(interaction, 'activate', None)
+        if callable(activate) and activated:
+            try:
+                activate()
+                activated = True
+            except Exception as e:
+                logger.warning(f"activate interaction failed: {e}")
+        if activated:
+            self.sleep(0.2)
+        return activated
+
+    def click_game_to_focus(self, force=False):
+        """点一下画面中心，把键盘焦点交给浏览器里的云游戏。
+
+        只在浏览器采集里做；10 秒内最多一次，避免退本状态机每 0.2 秒重试时
+        反复点画面。画面中心在局内是游戏世界，这一下普通攻击对退本无影响。
+        """
+        if not self.is_browser():
+            return False
+        now = time.time()
+        if not force and now - getattr(self, '_last_focus_click', 0) < 10:
+            return False
+        self._last_focus_click = now
+        self.log_info("ESC 没打开菜单，点一下画面取键盘焦点后重试")
+        self.ensure_game_foreground()
+        self.click_relative(0.5, 0.5, after_sleep=0.2)
+        self.sleep(0.2)
+        return True
+
+    def press_esc_until(self, condition, time_out=10, click_fallback=True):
+        """按 ESC 直到 condition 成立；第一次没反应就点一下画面取焦点再重试。
+
+        所有"按 ESC 开菜单 / 关菜单 / 返回上一页"的地方都走这里：委托退本、
+        狩月人 / 梦魇 / 戏剧的局内重开、密函返回列表。第一次 ESC 常被云游戏
+        吞掉（窗口没拿到键盘焦点），点一下画面中心即可。返回 True = 目标状态
+        已出现；False = 超时。
+
+        click_fallback 只在局内画面用（中心是游戏世界，点一下只是普攻）；
+        在开始/结算/列表这类 UI 画面上必须传 False，否则中心点击可能按下界面按钮。
+        """
+        start = time.time()
+        clicked_to_focus = False
+        while not condition():
+            if time.time() - start > time_out:
+                return False
+            self.send_key("esc")
+            if self.wait_until(condition, time_out=2, raise_if_not_found=False):
+                return True
+            if click_fallback and not clicked_to_focus:
+                clicked_to_focus = True
+                self.click_game_to_focus()
+        return True
         
     def setup_fidget_action(self):
         if not self.enable_fidget_action:

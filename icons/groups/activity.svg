@@ -1,15 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B5CF6"/>
-      <stop offset="1" stop-color="#F0ABFC"/>
+    <linearGradient id="p1" x1="20" y1="6" x2="44" y2="58">
+      <stop stop-color="#B7A6F2"/>
+      <stop offset="1" stop-color="#5A3EC0"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 5 39 23 57 31 39 39 32 59 25 39 7 31 25 23Z" fill="url(#g)" fill-opacity=".10"
-        stroke="url(#g)" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M37 10 42 24 55 29 42 34 37 48 32 34 19 29 32 24Z" fill="none"
-        stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round" opacity=".65"/>
-  <path d="M32 22 35 29 42 32 35 35 32 42 29 35 22 32 29 29Z" fill="#FDE68A"/>
+  <!-- continuous double helix passing BEHIND the star (compact height) -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M29 9.5 C 26.5 12, 26.5 16, 32 19.5 C 40 25.5, 40 29.5, 32 32 C 24 34.5, 24 38.5, 32 44.5 C 37.5 48, 37.5 52, 35 54.5" stroke="url(#p1)" stroke-width="2"/>
+    <path d="M35 9.5 C 37.5 12, 37.5 16, 32 19.5 C 24 25.5, 24 29.5, 32 32 C 40 34.5, 40 38.5, 32 44.5 C 26.5 48, 26.5 52, 29 54.5" stroke="url(#p1)" stroke-width="2" opacity="0.45"/>
+    <path d="M28.2 12.8 L35.8 12.8" stroke="#B7A6F2" stroke-width="1.4"/>
+    <path d="M30.6 16.2 L33.4 16.2" stroke="#B7A6F2" stroke-width="1.3"/>
+    <path d="M30.6 47.8 L33.4 47.8" stroke="#B7A6F2" stroke-width="1.3"/>
+    <path d="M28.2 51.2 L35.8 51.2" stroke="#B7A6F2" stroke-width="1.4"/>
+  </g>
+  <circle cx="29" cy="9.5" r="1.4" fill="#B7A6F2"/>
+  <circle cx="35" cy="9.5" r="1.4" fill="#B7A6F2"/>
+  <circle cx="35" cy="54.5" r="1.4" fill="#B7A6F2"/>
+  <circle cx="29" cy="54.5" r="1.4" fill="#B7A6F2"/>
 
+  <!-- 8-point star, line style -->
+  <path d="M45 32 L37.4 34 L41.8 40.6 L35.4 37.4 L32 45 L28.6 37.4 L22.2 40.6 L26.6 34 L19 32 L26.6 30 L22.2 25.4 L28.6 28.6 L32 19 L35.4 28.6 L41.8 25.4 L37.4 30 Z"
+        fill="#FFFFFF" stroke="#7C5CE0" stroke-width="2" stroke-linejoin="round"/>
+  <!-- center gem -->
+  <path d="M32 26.5 L37 32 L32 37.5 L27 32 Z" fill="#F0ECFB" stroke="#7C5CE0" stroke-width="1.7" stroke-linejoin="round"/>
+  <path d="M32 26.5 L34.4 29.2 L32 31.8 L29.6 29.2 Z" fill="#B7A6F2" opacity="0.85"/>
 </svg>

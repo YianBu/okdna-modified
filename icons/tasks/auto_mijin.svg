@@ -1,20 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C3AED"/>
-      <stop offset="1" stop-color="#F0ABFC"/>
+    <linearGradient id="p1" x1="18" y1="12" x2="46" y2="52">
+      <stop stop-color="#B7A6F2"/>
+      <stop offset="1" stop-color="#5A3EC0"/>
     </linearGradient>
   </defs>
 
-  <circle cx="32" cy="32" r="25" fill="url(#g)" fill-opacity=".10" stroke="url(#g)" stroke-width="2.6"/>
-  <circle cx="32" cy="32" r="18" fill="none" stroke="url(#g)" stroke-width="2.2" opacity=".85"/>
-  <g stroke="url(#g)" stroke-width="2" opacity=".75">
-    <path d="M32 7v13M32 44v13M7 32h13M44 32h13M14 14l9 9M41 41l9 9M50 14l-9 9M23 41l-9 9"/>
+  <!-- rose window: outer ring -->
+  <circle cx="32" cy="32" r="19" fill="none" stroke="#7C5CE0" stroke-width="1.6" opacity="0.7"/>
+  <circle cx="32" cy="32" r="16" fill="#F7F4FD" stroke="#7C5CE0" stroke-width="2"/>
+  <!-- 8 petals -->
+  <g fill="#FFFFFF" stroke="#7C5CE0" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(45 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(90 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(135 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(180 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(225 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(270 32 32)"/>
+    <path d="M32 17.5 C 34.8 21.5, 34.8 26.5, 32 30 C 29.2 26.5, 29.2 21.5, 32 17.5 Z" transform="rotate(315 32 32)"/>
   </g>
-  <path d="M32 16l3.5 12.5L48 32l-12.5 3.5L32 48l-3.5-12.5L16 32l12.5-3.5z" fill="#F5D0FE"
-        opacity=".95" stroke="#fff" stroke-opacity=".35" stroke-width="1"/>
-  <path d="M24 22c3-3 7-4 10-2M48 36c-3 4-8 6-12 4" fill="none" stroke="#fff" stroke-width="1.6" opacity=".55"/>
-  <path d="M32 49 24 58l3-1-4 5M32 15 40 6l-3 1 4-5" fill="none" stroke="#F5D0FE" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="32" cy="32" r="2.5" fill="#fff"/>
-
+  <!-- tiny helix inside center eye -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M32 27.5 C 29.8 29.5, 29.8 31, 32 32.5 C 34.2 34, 34.2 35.5, 32 37" stroke="url(#p1)" stroke-width="1.5"/>
+    <path d="M32 27.5 C 34.2 29.5, 34.2 31, 32 32.5 C 29.8 34, 29.8 35.5, 32 37" stroke="url(#p1)" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  <circle cx="32" cy="32.5" r="1" fill="#7C5CE0"/>
+  <!-- ring dots -->
+  <g fill="#7C5CE0">
+    <circle cx="32" cy="12.5" r="1.2"/>
+    <circle cx="47.3" cy="20" r="1.2"/>
+    <circle cx="51.5" cy="32" r="1.2"/>
+    <circle cx="47.3" cy="44" r="1.2"/>
+    <circle cx="32" cy="51.5" r="1.2"/>
+    <circle cx="16.7" cy="44" r="1.2"/>
+    <circle cx="12.5" cy="32" r="1.2"/>
+    <circle cx="16.7" cy="20" r="1.2"/>
+  </g>
 </svg>

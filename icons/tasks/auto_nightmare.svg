@@ -1,18 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7A1620"/>
-      <stop offset="1" stop-color="#FF6B6B"/>
+    <linearGradient id="p1" x1="22" y1="6" x2="42" y2="58">
+      <stop stop-color="#F0A0A0"/>
+      <stop offset="1" stop-color="#9E2626"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 4 38 20 54 12 45 28 60 32 45 36 54 52 38 44 32 60 26 44 10 52 19 36 4 32 19 28 10 12 26 20Z"
-        fill="#1B0B10" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"/>
-  <path d="M32 18c-8 5-12 9-12 14s4 9 12 14c8-5 12-9 12-14s-4-9-12-14z" fill="none"
-        stroke="url(#g)" stroke-width="2.2"/>
-  <circle cx="32" cy="32" r="7" fill="url(#g)"/>
-  <circle cx="32" cy="32" r="3" fill="#12070A"/>
-  <path d="M32 18v-5M32 46v5" stroke="#FFD9C8" stroke-width="1.5" opacity=".8"/>
-  <path d="M18 20l3-3 3 3-3 3zM43 41l3-3 3 3-3 3z" fill="#FFD9C8" opacity=".65"/>
+  <!-- continuous double helix passing BEHIND the eye-star (compact height) -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M29 8.5 C 26.5 11, 26.5 14.5, 32 17.5 C 40.5 23, 40.5 28, 32 32 C 23.5 36, 23.5 41, 32 46.5 C 37.5 49.5, 37.5 53, 35 55.5" stroke="url(#p1)" stroke-width="2"/>
+    <path d="M35 8.5 C 37.5 11, 37.5 14.5, 32 17.5 C 23.5 23, 23.5 28, 32 32 C 40.5 36, 40.5 41, 32 46.5 C 26.5 49.5, 26.5 53, 29 55.5" stroke="url(#p1)" stroke-width="2" opacity="0.45"/>
+    <path d="M28.2 11.8 L35.8 11.8" stroke="#F0A0A0" stroke-width="1.4"/>
+    <path d="M30.6 15.2 L33.4 15.2" stroke="#F0A0A0" stroke-width="1.3"/>
+    <path d="M30.6 48.8 L33.4 48.8" stroke="#F0A0A0" stroke-width="1.3"/>
+    <path d="M28.2 52.2 L35.8 52.2" stroke="#F0A0A0" stroke-width="1.4"/>
+  </g>
+  <circle cx="29" cy="8.5" r="1.4" fill="#F0A0A0"/>
+  <circle cx="35" cy="8.5" r="1.4" fill="#F0A0A0"/>
+  <circle cx="35" cy="55.5" r="1.4" fill="#F0A0A0"/>
+  <circle cx="29" cy="55.5" r="1.4" fill="#F0A0A0"/>
 
+  <!-- chaos 8-point star, line style -->
+  <path d="M46.5 32 L38.4 33.9 L45 40.6 L36.9 38.4 L32 46.5 L27.1 38.4 L19 40.6 L25.6 33.9 L17.5 32 L25.6 30.1 L19 23.4 L27.1 25.6 L32 17.5 L36.9 25.6 L45 23.4 L38.4 30.1 Z"
+        fill="#FFFFFF" stroke="#C94040" stroke-width="2" stroke-linejoin="round"/>
+  <!-- central eye -->
+  <path d="M25 32 C 27.5 28.5, 30 27, 32 27 C 34 27, 36.5 28.5, 39 32 C 36.5 35.5, 34 37, 32 37 C 30 37, 27.5 35.5, 25 32 Z"
+        fill="#FFFFFF" stroke="#C94040" stroke-width="1.7" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="3.2" fill="#FBEDED" stroke="#C94040" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="1.2" fill="#C94040"/>
 </svg>

@@ -111,7 +111,8 @@ class ImportTask(DungeonFlowMixin, DNAOneTimeTask, CommissionsTask, BaseCombatTa
                     if self.current_wave != self.runtime_state["wave"]:
                         self.runtime_state["wave"] = self.current_wave
                 self.skill_tick()
-                if time.time() - self.runtime_state["wave_start_time"] >= self.config.get('超时时间', 180):
+                timeout = self.config.get('超时时间', 180)
+                if timeout and time.time() - self.runtime_state["wave_start_time"] >= timeout:
                     self.log_info('任务超时')
                     self.give_up_mission()
                     continue

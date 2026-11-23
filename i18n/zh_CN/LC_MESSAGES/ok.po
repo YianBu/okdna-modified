@@ -489,7 +489,16 @@ msgstr ""
 msgid "超时后将发出提示"
 msgstr ""
 
+msgid "超时后将发出提示（0 = 不限制）"
+msgstr ""
+
 msgid "超时后将重启任务"
+msgstr ""
+
+msgid "超时后将重启任务（0 = 不限制）"
+msgstr ""
+
+msgid "进本后超过这么久还没结束就放弃并重开（0 = 不限制）"
 msgstr ""
 
 msgid "超时时间"
@@ -758,6 +767,36 @@ msgid "快捷启动键"
 msgstr ""
 
 msgid "按这个键启动 / 停止本任务（游戏里也认，不用切回程序点按钮）：没在跑就启动，正在跑就停止，再按一次就是重跑并重新读一遍 JSON"
+msgstr ""
+
+msgid "退本测试"
+msgstr ""
+
+msgid "退本方式"
+msgstr ""
+
+msgid "放弃挑战（ESC 菜单）"
+msgstr ""
+
+msgid "撤离（行动抉择弹窗）"
+msgstr ""
+
+msgid "只打开 ESC 菜单"
+msgstr ""
+
+msgid "测试局数"
+msgstr ""
+
+msgid "超时时间(秒)"
+msgstr ""
+
+msgid "放弃挑战 / 撤离都调用正式任务同一套状态机；只打开 ESC 菜单用于核对菜单判据"
+msgstr ""
+
+msgid "连续测几次退本；0 = 一直重复（每次退本后按提示重新进本；只打开 ESC 菜单时只测一次）"
+msgstr ""
+
+msgid "单次退本最多等多久（下限 30 秒）；到点还没退出去就判定失败"
 msgstr ""
 
 msgid "自动狩月人之阶"

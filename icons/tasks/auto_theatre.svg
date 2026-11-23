@@ -1,21 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B76E79"/>
-      <stop offset="1" stop-color="#FFE3B3"/>
+    <linearGradient id="p1" x1="16" y1="14" x2="48" y2="54">
+      <stop stop-color="#EBAECB"/>
+      <stop offset="1" stop-color="#9A3D68"/>
     </linearGradient>
   </defs>
 
-  <path d="M8 57V28C8 14 19 5 32 5s24 9 24 23v29Z" fill="#0B1628" fill-opacity=".18"
-        stroke="url(#g)" stroke-width="2.8" stroke-linejoin="round"/>
-  <path d="M15 57V29c0-10 7-17 17-17s17 7 17 17v28Z" fill="#5EB8FF" fill-opacity=".14"
-        stroke="url(#g)" stroke-width="2.2"/>
-  <path d="M23 50V35c0-2 1.5-4 3.5-4S30 33 30 35v15M30 50V31c0-2 1.5-4 3.5-4S37 29 37 31v19M37 50V34c0-2 1.5-4 3.5-4s3.5 2 3.5 4v16"
-        fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round"/>
-  <path d="M19 57V30M45 57V30" stroke="url(#g)" stroke-width="2.2" opacity=".7"/>
-  <path d="M8 57h48" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>
-  <g fill="#fff" opacity=".9"><circle cx="20" cy="18" r="1.2"/><circle cx="42" cy="14" r="1.2"/>
-    <circle cx="38" cy="24" r="1"/><circle cx="24" cy="12" r="1"/></g>
-  <path d="M32 8l2 4-2 2-2-2z" fill="#7DD3FC"/>
+  <!-- tragedy mask (behind, sad) -->
+  <g transform="translate(-8.5,-8.5) rotate(-10 32 32)">
+    <path d="M26 22 C26 18, 30 15.8, 34 16.4 C38 17, 41 20, 41 25 C41 33, 36 39, 32.5 41.5 C29 38.5, 26 31.5, 26 22 Z"
+          fill="#FCF5F9" stroke="#C95C8F" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M29.5 23.5 C 30.3 25, 32.2 25, 33 23.5" fill="none" stroke="#C95C8F" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M36 24 C 36.8 25.5, 38.7 25.5, 39.5 24" fill="none" stroke="#C95C8F" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M30 31.5 C 32 29, 36.5 29.5, 38 32" fill="none" stroke="#C95C8F" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M31.5 16.5 C 30 13.5, 33 12.5, 34.5 14.5" fill="none" stroke="#C95C8F" stroke-width="1.3" stroke-linecap="round"/>
+  </g>
+  <!-- comedy mask (front, smiling) -->
+  <g transform="translate(4,6) rotate(8 32 32)">
+    <path d="M26 22 C26 18, 30 15.8, 34 16.4 C38 17, 41 20, 41 25 C41 33, 36 39, 32.5 41.5 C29 38.5, 26 31.5, 26 22 Z"
+          fill="#FFFFFF" stroke="#C95C8F" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M29.5 23.5 C 30.3 21.8, 32.2 21.8, 33 23.5" fill="none" stroke="#C95C8F" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M36 24 C 36.8 22.3, 38.7 22.3, 39.5 24" fill="none" stroke="#C95C8F" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M29.5 30.5 C 31.5 34.5, 37 34.5, 39 30.5" fill="none" stroke="#C95C8F" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- ribbon loops -->
+    <path d="M31.5 16.5 C 30 13.5, 33 12.5, 34.5 14.5" fill="none" stroke="#C95C8F" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
 
+  <!-- DOUBLE HELIX garland swag: two crossing strands + rungs -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M14 50 C 20 45.5, 26 45.5, 32 50 C 38 54.5, 44 54.5, 50 50" stroke="url(#p1)" stroke-width="1.8"/>
+    <path d="M14 50 C 20 54.5, 26 54.5, 32 50 C 38 45.5, 44 45.5, 50 50" stroke="url(#p1)" stroke-width="1.8" opacity="0.5"/>
+    <path d="M22.5 47.9 V52.1" stroke="#EBAECB" stroke-width="1.4"/>
+    <path d="M41.5 47.9 V52.1" stroke="#EBAECB" stroke-width="1.4"/>
+    <path d="M18.5 49.2 V50.8" stroke="#EBAECB" stroke-width="1.3"/>
+    <path d="M45.5 49.2 V50.8" stroke="#EBAECB" stroke-width="1.3"/>
+  </g>
+  <circle cx="14" cy="50" r="1.5" fill="#C95C8F"/>
+  <circle cx="50" cy="50" r="1.5" fill="#C95C8F"/>
+  <!-- sparkles -->
+  <path d="M10 18 L10.9 20.3 L13.2 21.2 L10.9 22.1 L10 24.4 L9.1 22.1 L6.8 21.2 L9.1 20.3 Z" fill="#EBAECB"/>
+  <path d="M54 14 L54.9 16.3 L57.2 17.2 L54.9 18.1 L54 20.4 L53.1 18.1 L50.8 17.2 L53.1 16.3 Z" fill="#EBAECB"/>
 </svg>

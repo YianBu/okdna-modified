@@ -449,13 +449,9 @@ class AutoTheatreTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, B
         正好当重开完成的信号；万一它没消失（秒重开）也不会卡住，直接往下走。
         """
         self.stop_skills('重新开始')
-        start = time.time()
-        while not self.find_one(ESC_RETRY):
-            if time.time() - start > time_out:
-                raise Exception('局内菜单打不开，没法重新开始')
-            self.send_key("esc")
-            self.wait_until(lambda: self.find_one(ESC_RETRY) is not None, time_out=2,
-                            raise_if_not_found=False)
+        if not self.press_esc_until(
+                lambda: self.find_one(ESC_RETRY) is not None, time_out=time_out):
+            raise Exception('局内菜单打不开，没法重新开始')
         self.wait_until(
             condition=lambda: self.find_one(RESTART_CONFIRM) is not None,
             post_action=lambda: self.click_ui_coord(COORD.THEATRE_ESC_RETRY, name=ESC_RETRY,

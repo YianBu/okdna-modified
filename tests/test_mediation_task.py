@@ -191,6 +191,16 @@ class TestMediationTask(TaskTestCase):
         self.assertTrue(self.task.solve_unlock(time_out=2, interval=0, check_interval=0))
         self.assertEqual(calls, ["f"], "目标完成后不再继续按 F")
 
+    def test_timeout_zero_means_no_limit(self):
+        original = self.task.config
+        try:
+            self.task.config = {"超时时间": 0}
+            self.assertFalse(self.task.timeout_expired(time.time() - 9999))
+            self.task.config = {"超时时间": 90}
+            self.assertTrue(self.task.timeout_expired(time.time() - 9999))
+        finally:
+            self.task.config = original
+
 
 
 if __name__ == "__main__":

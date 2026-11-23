@@ -1,18 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B5CF6"/>
-      <stop offset="1" stop-color="#22D3EE"/>
+    <linearGradient id="p1" x1="22" y1="6" x2="42" y2="58">
+      <stop stop-color="#9ADCF2"/>
+      <stop offset="1" stop-color="#14689E"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 4l5.5 19 19 9-19 5.5-5.5 22.5-5.5-22.5L7 32l19-9z" fill="url(#g)"
-        fill-opacity=".18" stroke="url(#g)" stroke-width="2.8" stroke-linejoin="round"/>
-  <path d="M32 14l3 12 12 6-12 3-3 14-3-14-12-3 12-6z" fill="url(#g)" opacity=".9"
-        stroke="#fff" stroke-opacity=".45" stroke-width="1"/>
-  <ellipse cx="32" cy="32" rx="25" ry="10" transform="rotate(-28 32 32)"
-           fill="none" stroke="#EDE9FE" stroke-width="2.2"/>
-  <circle cx="55" cy="18" r="2" fill="#EDE9FE"/>
-  <circle cx="9" cy="45" r="1.6" fill="#fff" opacity=".9"/>
+  <!-- orbit -->
+  <ellipse cx="32" cy="32" rx="23" ry="8.5" transform="rotate(-28 32 32)" fill="none" stroke="#9ADCF2" stroke-width="1.3" opacity="0.7"/>
+  <circle cx="51" cy="21.5" r="1.6" fill="#1E9AD6"/>
+  <circle cx="13" cy="42.5" r="1.6" fill="#9ADCF2"/>
 
+  <!-- continuous double helix passing BEHIND the star (compact height) -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M29 9.5 C 26.5 12, 26.5 16, 32 19.5 C 40 25.5, 40 29.5, 32 32 C 24 34.5, 24 38.5, 32 44.5 C 37.5 48, 37.5 52, 35 54.5" stroke="url(#p1)" stroke-width="2"/>
+    <path d="M35 9.5 C 37.5 12, 37.5 16, 32 19.5 C 24 25.5, 24 29.5, 32 32 C 40 34.5, 40 38.5, 32 44.5 C 26.5 48, 26.5 52, 29 54.5" stroke="url(#p1)" stroke-width="2" opacity="0.45"/>
+    <path d="M28.2 12.8 L35.8 12.8" stroke="#9ADCF2" stroke-width="1.4"/>
+    <path d="M30.6 16.2 L33.4 16.2" stroke="#9ADCF2" stroke-width="1.3"/>
+    <path d="M30.6 47.8 L33.4 47.8" stroke="#9ADCF2" stroke-width="1.3"/>
+    <path d="M28.2 51.2 L35.8 51.2" stroke="#9ADCF2" stroke-width="1.4"/>
+  </g>
+  <circle cx="29" cy="9.5" r="1.4" fill="#9ADCF2"/>
+  <circle cx="35" cy="9.5" r="1.4" fill="#9ADCF2"/>
+  <circle cx="35" cy="54.5" r="1.4" fill="#9ADCF2"/>
+  <circle cx="29" cy="54.5" r="1.4" fill="#9ADCF2"/>
+
+  <!-- 8-point star, line style -->
+  <path d="M45 32 L37.4 34 L41.8 40.6 L35.4 37.4 L32 45 L28.6 37.4 L22.2 40.6 L26.6 34 L19 32 L26.6 30 L22.2 25.4 L28.6 28.6 L32 19 L35.4 28.6 L41.8 25.4 L37.4 30 Z"
+        fill="#FFFFFF" stroke="#1E9AD6" stroke-width="2" stroke-linejoin="round"/>
+  <!-- center gem -->
+  <path d="M32 27 L37 32 L32 37 L27 32 Z" fill="#E7F5FC" stroke="#1E9AD6" stroke-width="1.7" stroke-linejoin="round"/>
+  <path d="M32 27 L34.4 29.5 L32 32 L29.6 29.5 Z" fill="#9ADCF2" opacity="0.85"/>
 </svg>

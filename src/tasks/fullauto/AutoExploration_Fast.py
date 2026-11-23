@@ -47,7 +47,7 @@ class AutoExploration_Fast(DungeonFlowMixin, DungeonActionMixin, DNAOneTimeTask,
         })
         self.config_description.update({
             '轮次': '打几个轮次',
-            '超时时间': '超时后将发出提示',
+            '超时时间': '超时后将发出提示（0 = 不限制）',
             '地图选择': '选择要自动执行的地图类型',
         })
         self.setup_commission_config()

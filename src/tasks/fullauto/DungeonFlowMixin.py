@@ -99,8 +99,9 @@ class DungeonFlowMixin(DungeonSignalsMixin):
                 self.runtime_state.update(
                     {"wave": self.current_wave, "wave_start_time": time.time(), "wait_next_wave": False})
 
-            if (not self.runtime_state["wait_next_wave"] and self.combat_detection_enabled()
-                    and time.time() - self.runtime_state["wave_start_time"] >= self.config.get("超时时间", 120)):
+            timeout = self.config.get("超时时间", 120)
+            if (not self.runtime_state["wait_next_wave"] and self.combat_detection_enabled() and timeout
+                    and time.time() - self.runtime_state["wave_start_time"] >= timeout):
                 if self.external_movement is not _default_movement:
                     self.log_info("任务超时")
                     self.give_up_mission()
@@ -120,8 +121,9 @@ class DungeonFlowMixin(DungeonSignalsMixin):
             if self.runtime_state["start_time"] == 0:
                 self.runtime_state["start_time"] = time.time()
 
-            if (not self.runtime_state["wait_next_round"] and self.combat_detection_enabled()
-                    and time.time() - self.runtime_state["start_time"] >= self.config.get("超时时间", 120)):
+            timeout = self.config.get("超时时间", 120)
+            if (not self.runtime_state["wait_next_round"] and self.combat_detection_enabled() and timeout
+                    and time.time() - self.runtime_state["start_time"] >= timeout):
                 if self.external_movement is not _default_movement:
                     self.log_info("任务超时")
                     self.give_up_mission()

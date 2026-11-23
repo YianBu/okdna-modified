@@ -1,18 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2E5BFF"/>
-      <stop offset="1" stop-color="#7DD3FC"/>
+    <linearGradient id="p1" x1="22" y1="16" x2="42" y2="52">
+      <stop stop-color="#A3C4EE"/>
+      <stop offset="1" stop-color="#245398"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 6 54 14v16c0 12-9 21-22 28C19 51 10 42 10 30V14Z"
-        fill="url(#g)" fill-opacity=".12" stroke="url(#g)" stroke-width="2.8" stroke-linejoin="round"/>
-  <path d="M32 15v34M21 22l11-7 11 7" fill="none" stroke="url(#g)" stroke-width="2.8"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M15 19c-4 6-4 14 0 20M49 19c4 6 4 14 0 20" fill="none" stroke="url(#g)"
-        stroke-width="2.4" opacity=".65" stroke-linecap="round"/>
-  <circle cx="32" cy="32" r="3.6" fill="#DCEBFF"/>
-  <path d="M32 6l2.5 4L32 12.5 29.5 10z" fill="#DCEBFF"/>
+  <!-- heater shield, wide -->
+  <path d="M32 9.5 C 37 13, 42 14.5, 47 14.5 L47 32 C47 43, 40.5 49.5, 32 54.5 C23.5 49.5, 17 43, 17 32 L17 14.5 C22 14.5, 27 13, 32 9.5 Z"
+        fill="#FFFFFF" stroke="#3572C9" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- chief band -->
+  <path d="M17 14.5 C 22 14.5, 27 13, 32 9.5 C 37 13, 42 14.5, 47 14.5 L47 19 L17 19 Z"
+        fill="#EBF3FC" stroke="#3572C9" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#3572C9">
+    <circle cx="24" cy="16.8" r="1"/>
+    <circle cx="32" cy="16.8" r="1"/>
+    <circle cx="40" cy="16.8" r="1"/>
+  </g>
+  <!-- inner bevel line -->
+  <path d="M20 22.5 H44 V32 C44 40.5, 39 45.5, 32 50 C25 45.5, 20 40.5, 20 32 Z" fill="none" stroke="#A3C4EE" stroke-width="1" opacity="0.7"/>
 
+  <!-- helix emblem centered on shield face -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M32 21.5 C 26.5 24.5, 26.5 28.5, 32 31.5 C 37.5 34.5, 37.5 38.5, 32 41.5" stroke="url(#p1)" stroke-width="2"/>
+    <path d="M32 21.5 C 37.5 24.5, 37.5 28.5, 32 31.5 C 26.5 34.5, 26.5 38.5, 32 41.5" stroke="url(#p1)" stroke-width="2" opacity="0.45"/>
+    <path d="M27.8 26 L36.2 26" stroke="#A3C4EE" stroke-width="1.5"/>
+    <path d="M27.8 37 L36.2 37" stroke="#A3C4EE" stroke-width="1.5"/>
+  </g>
+  <circle cx="32" cy="21.5" r="1.4" fill="#3572C9"/>
+  <circle cx="32" cy="41.5" r="1.4" fill="#3572C9"/>
+  <!-- boss gem -->
+  <path d="M32 43.5 L35 47.5 L32 51.5 L29 47.5 Z" fill="#EBF3FC" stroke="#3572C9" stroke-width="1.5" stroke-linejoin="round"/>
 </svg>

@@ -31,7 +31,7 @@ class AutoSkill(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
 
         self.config_description.update({
             '主画面侦测': '如果不在可操控角色的画面则结束任务',
-            '超时时间': '超时后将发出提示',
+            '超时时间': '超时后将发出提示（0 = 不限制）',
         })
 
         self.skill_tick = self.create_skill_ticker()
@@ -59,7 +59,8 @@ class AutoSkill(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                     self.log_info_notify('任务完成')
                     self.soundBeep()
                     return
-            if time.time() - self.start_time >= self.config.get('超时时间', 120):
+            timeout = self.config.get('超时时间', 120)
+            if timeout and time.time() - self.start_time >= timeout:
                 self.log_info_notify('任务超时')
                 self.soundBeep()
                 return

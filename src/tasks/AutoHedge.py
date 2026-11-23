@@ -30,7 +30,7 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             self.default_config.pop(key, None)
 
         self.config_description.update({
-            '超时时间': '超时后将发出提示',
+            '超时时间': '超时后将发出提示（0 = 不限制）',
         })
 
         self.external_movement = _default_movement
@@ -130,8 +130,9 @@ class AutoHedge(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
             if self.runtime_state["start_time"] == 0:
                 self.runtime_state["start_time"] = time.time()
 
-            if not self.runtime_state["wait_next_round"] and self.combat_detection_enabled() and time.time() - self.runtime_state[
-                "start_time"] >= self.config.get("超时时间", 120):
+            timeout = self.config.get("超时时间", 120)
+            if (not self.runtime_state["wait_next_round"] and self.combat_detection_enabled() and timeout
+                    and time.time() - self.runtime_state["start_time"] >= timeout):
                 if self.external_movement is not _default_movement:
                     self.log_info("任务超时")
                     self.give_up_mission()

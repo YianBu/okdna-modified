@@ -1,15 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="g" x1="10" y1="7" x2="54" y2="57" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#16A34A"/>
-      <stop offset="1" stop-color="#BEF264"/>
+    <linearGradient id="p1" x1="22" y1="14" x2="42" y2="50">
+      <stop stop-color="#93D9B8"/>
+      <stop offset="1" stop-color="#177A4E"/>
     </linearGradient>
   </defs>
 
-  <path d="M32 4l5 18 18 10-18 6-5 18-5-18-18-6 18-10z" fill="url(#g)" fill-opacity=".14"
-        stroke="url(#g)" stroke-width="2.6" stroke-linejoin="round"/>
-  <circle cx="32" cy="32" r="12" fill="none" stroke="url(#g)" stroke-width="2.4"/>
-  <path d="M38 22 34 34 22 38 26 26z" fill="#ECFCCB" stroke="url(#g)" stroke-width="1.8" stroke-linejoin="round"/>
-  <circle cx="46" cy="46" r="2" fill="#ECFCCB"/>
+  <!-- compass rose fill -->
+  <circle cx="32" cy="32" r="17.5" fill="#F3FCF8"/>
+  <!-- rings -->
+  <circle cx="32" cy="32" r="17.5" fill="none" stroke="#22A06B" stroke-width="2.2"/>
+  <circle cx="32" cy="32" r="13.5" fill="none" stroke="#93D9B8" stroke-width="0.9" opacity="0.8"/>
+  <!-- diagonal ticks -->
+  <g stroke="#93D9B8" stroke-width="1" stroke-linecap="round" opacity="0.85">
+    <path d="M44.4 19.6 L42.4 21.6 M19.6 19.6 L21.6 21.6 M44.4 44.4 L42.4 42.4 M19.6 44.4 L21.6 42.4"/>
+  </g>
+  <!-- cardinal ticks -->
+  <g stroke="#22A06B" stroke-width="1.7" stroke-linecap="round">
+    <path d="M32 14.5 V18.5 M32 45.5 V49.5 M14.5 32 H18.5 M45.5 32 H49.5"/>
+  </g>
 
+  <!-- helix needle: connects the N & S ticks, darker green -->
+  <g stroke-linecap="round" fill="none">
+    <path d="M32 18.5 C 26 23, 26 28, 32 32 C 38 36, 38 41, 32 45.5" stroke="#177A4E" stroke-width="2"/>
+    <path d="M32 18.5 C 38 23, 38 28, 32 32 C 26 36, 26 41, 32 45.5" stroke="#177A4E" stroke-width="2" opacity="0.55"/>
+    <path d="M29 23.8 H35" stroke="#21945B" stroke-width="1.4"/>
+    <path d="M29 40.2 H35" stroke="#21945B" stroke-width="1.4"/>
+    <path d="M30.6 28 H33.4" stroke="#21945B" stroke-width="1.2"/>
+    <path d="M30.6 36 H33.4" stroke="#21945B" stroke-width="1.2"/>
+  </g>
+  <!-- pivot (covers the helix crossing = needle hub) -->
+  <circle cx="32" cy="32" r="3.4" fill="#FFFFFF" stroke="#177A4E" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="1.1" fill="#177A4E"/>
 </svg>

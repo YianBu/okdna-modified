@@ -79,7 +79,7 @@ class CommissionsTask(BaseDNATask):
         })
         self.config_description.update({
             "轮次": "打几个轮次",
-            "超时时间": "超时后将重启任务",
+            "超时时间": "超时后将重启任务（0 = 不限制）",
         })
 
     def setup_mission_start_config(self):
@@ -294,17 +294,9 @@ class CommissionsTask(BaseDNATask):
     def open_in_mission_menu(self, time_out=20, raise_if_not_found=True):
         if self.find_esc_menu():
             return True
-        found = False
-        start = time.time()
-        while time.time() - start < time_out:
-            self.send_key("esc")
-            # 云游戏/动画期间菜单可能慢一两秒才出来，单次等待给 3 秒，避免误判后反复按 ESC 把菜单又关掉
-            if self.wait_until(self.find_esc_menu, time_out=3, raise_if_not_found=False):
-                found = True
-                break
-        else:
-            if raise_if_not_found:
-                raise Exception("未找到任务菜单")
+        found = self.press_esc_until(self.find_esc_menu, time_out=time_out)
+        if not found and raise_if_not_found:
+            raise Exception("未找到任务菜单")
         self.sleep(0.2)
         return found
 
@@ -391,8 +383,7 @@ class CommissionsTask(BaseDNATask):
             return False
         if not self.in_team():
             return True
-        self.send_key("esc")
-        self.wait_until(self.find_esc_menu, time_out=3, raise_if_not_found=False)
+        self.press_esc_until(self.find_esc_menu, time_out=3)
         return False
 
     def find_retreat_button(self):

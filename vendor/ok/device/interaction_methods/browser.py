@@ -76,6 +76,39 @@ class BrowserInteraction(BaseInteraction):
         if hasattr(self.capture, 'run_in_loop'):
             self.capture.run_in_loop(action_coro)
 
+    def focus_page(self):
+        """让云游戏页面拿到键盘焦点（页面级，不切窗口）。
+
+        浏览器窗口在后台时，Chromium 可能不把 Esc 交给网页，表现就是
+        「任务发了 ESC，但游戏里的退本菜单打不开」。这里只做页面级处理：
+        开启焦点模拟、调用 window.focus；不 bring_to_front，避免把浏览器
+        窗口拉到前台、切走用户正在用的桌面。只在任务需要点画面取焦点时调用，
+        不参与任务启动流程。
+        """
+
+        async def _act():
+            try:
+                page = self.capture.page
+                cdp = getattr(self.capture, '_focus_cdp', None)
+                if cdp is None or getattr(self.capture, '_focus_cdp_page', None) is not page:
+                    cdp = await asyncio.wait_for(page.context.new_cdp_session(page), timeout=2)
+                    self.capture._focus_cdp = cdp
+                    self.capture._focus_cdp_page = page
+                await asyncio.wait_for(
+                    cdp.send('Emulation.setFocusEmulationEnabled', {'enabled': True}), timeout=2)
+            except Exception as e:
+                logger.debug(f'BrowserInteraction focus emulation failed: {e}')
+            try:
+                await asyncio.wait_for(
+                    self.capture.page.evaluate(
+                        "() => {"
+                        "  try { window.focus(); } catch (e) {}"
+                        "}"), timeout=2)
+            except Exception as e:
+                logger.debug(f'BrowserInteraction page focus failed: {e}')
+
+        self._run_action(_act())
+
     def send_key(self, key, down_time=0.02):
         mapped_key = self._map_key(key)
         logger.debug(f'BrowserInteraction send_key {key}')
