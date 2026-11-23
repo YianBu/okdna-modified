@@ -291,12 +291,18 @@ class CommissionsTask(BaseDNATask):
         return self.find_ui(Ui.RESULT_AGAIN_BTN, threshold=threshold)
 
 
-    def open_in_mission_menu(self, time_out=20, raise_if_not_found=True):
+    def open_in_mission_menu(self, time_out=20, raise_if_not_found=False):
         if self.find_esc_menu():
             return True
         found = self.press_esc_until(self.find_esc_menu, time_out=time_out)
-        if not found and raise_if_not_found:
-            raise Exception("未找到任务菜单")
+        if not found:
+            self.log_info(f"打不开任务菜单（{time_out:g} 秒超时），任务继续运行")
+            # 不要因为一次菜单打不开就停任务；每轮任务只通知一次，日志继续记。
+            self.notify_once(
+                "menu_open_failed",
+                "打不开 ESC 菜单，任务未停止；请检查云游戏窗口/键盘焦点")
+            if raise_if_not_found:
+                raise Exception("未找到任务菜单")
         self.sleep(0.2)
         return found
 

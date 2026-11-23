@@ -157,6 +157,11 @@ config = {
         # 云游戏在 pointer lock 期间会调用 navigator.keyboard.lock()，把 Alt+Tab /
         # Win / Ctrl 截给页面。这里假装锁成功，实际把键盘留给 Windows。
         "fake_keyboard_lock": True,
+        # 幽灵模式：把云游戏窗口移到屏幕外，桌面上看不到，但 WGC 继续抓帧、
+        # PostMessage 继续发按键。开启前先运行 tools/ghost_check.py 确认
+        # “屏幕外”那一行能正常出帧；若显示冻结，说明该机器上 DWM 不合成
+        # 屏幕外窗口，此时保持关闭即可。
+        "ghost_mode": False,
     },
     "start_timeout": 120,  # default 60
     "window_size": {  # ok-script窗口大小

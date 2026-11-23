@@ -308,6 +308,15 @@
             "width": 1600,
             "date_captured": null,
             "id": 52
+        },
+        {
+            "license": 0,
+            "url": null,
+            "file_name": "images/18_syr_hud_17.png",
+            "height": 900,
+            "width": 1600,
+            "date_captured": null,
+            "id": 53
         }
     ],
     "annotations": [
@@ -1252,6 +1261,36 @@
             "iscrowd": 0,
             "ignore": 0,
             "segmentation": []
+        },
+        {
+            "id": 70,
+            "image_id": 53,
+            "category_id": 70,
+            "bbox": [
+                738,
+                142,
+                122,
+                23
+            ],
+            "area": 2806,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
+        },
+        {
+            "id": 71,
+            "image_id": 53,
+            "category_id": 71,
+            "bbox": [
+                1448,
+                840,
+                59,
+                19
+            ],
+            "area": 1121,
+            "iscrowd": 0,
+            "ignore": 0,
+            "segmentation": []
         }
     ],
     "categories": [
@@ -1583,6 +1622,16 @@
         {
             "id": 69,
             "name": "syr_start_btn_17",
+            "supercategory": ""
+        },
+        {
+            "id": 70,
+            "name": "syr_combat_label_17",
+            "supercategory": ""
+        },
+        {
+            "id": 71,
+            "name": "syr_esc_giveup_17",
             "supercategory": ""
         }
     ]

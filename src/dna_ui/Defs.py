@@ -276,6 +276,7 @@ class COORD:
     # ---- 狩月人之阶（上游 AutoMoonHunterTask 用，和下面巅峰赛那份是两套实现）----
     # 判据都是按钮/图标本身（label 在 AutoMoonHunterTask 里），这里只需点按钮上的图标中心：
     SYR_START = (1286, 813)                   # 活动页「开始挑战」按钮里的 ◯ 图标（1.7）
+    SYR_GIVEUP = (1478, 855)                  # 1.7 局内 ESC 菜单「放弃挑战」按钮
     SYR_RESULT_WIN_RETRY = (452, 755)         # 成功页左下角的圆形箭头图标按钮
     SYR_RESULT_FAIL_RESTART = (960, 755)      # 失败页「重新开始」按钮中心
 

@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QApplication
 from ok import Logger, og
 from threading import Event, Thread
 
+from src.ghost_mode import GhostWindowKeeper
+
 logger = Logger.get_logger(__name__)
 
 
@@ -51,6 +53,15 @@ except Exception as e:
     logger.warning(f"无法应用云游戏窗口分辨率补丁: {e}")
 
 
+# --- 运行栏“幽灵模式”开关 ---
+try:
+    from src.ghost_toggle import install_ghost_toggle
+
+    install_ghost_toggle()
+except Exception as e:
+    logger.warning(f"无法安装幽灵模式开关: {e}")
+
+
 class BrowserResolutionLock:
     """持续把云游戏浏览器窗口锁在 config["browser"]["resolution"]。
 
@@ -64,6 +75,10 @@ class BrowserResolutionLock:
         self._logged_target = None
         self._stop_event = Event()
         self._thread = Thread(target=self._run, daemon=True, name="BrowserResolutionLock")
+        self._ghost = GhostWindowKeeper()
+        self._ghost_state = None
+        self._ghost_applied = False
+        self._ghost_fail_count = 0
 
     def start(self):
         self._thread.start()
@@ -73,13 +88,18 @@ class BrowserResolutionLock:
         self._stop_event.set()
         if self._thread.is_alive():
             self._thread.join(timeout=1)
+        self._ghost.release()
 
     def _run(self):
+        failures = 0
         while not self._stop_event.wait(self.interval):
             try:
                 self._tick()
+                failures = 0
             except Exception as e:
-                logger.debug(f"云游戏分辨率锁定检查失败: {e}")
+                failures += 1
+                if failures == 1 or failures % 60 == 0:
+                    logger.warning(f"云游戏窗口锁定检查失败（连续第 {failures} 次）: {e}")
 
     def _tick(self):
         from ok.device.capture_methods.browser import BrowserCaptureMethod
@@ -111,9 +131,10 @@ class BrowserResolutionLock:
         hwnd = capture.hwnd
         if not win32gui.IsWindow(hwnd) or win32gui.IsIconic(hwnd):
             return
-        if win32gui.IsZoomed(hwnd):
+        if win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE) & win32con.WS_MAXIMIZE:
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             time.sleep(0.2)
+        self._sync_ghost(capture, hwnd)
 
         # selected_hwnd 保证只量 BrowserCaptureMethod 自己那个 Edge 窗口，
         # 不会误伤用户另外打开的浏览器窗口。
@@ -136,6 +157,32 @@ class BrowserResolutionLock:
         win32gui.SetWindowPos(hwnd, 0, 0, 0, new_w, new_h,
                               win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
                               | win32con.SWP_NOACTIVATE)
+
+    def _sync_ghost(self, capture, hwnd):
+        """幽灵模式：把云游戏窗口固定到屏幕外，屏幕上看不到但不影响抓帧。"""
+        import win32gui
+        from src.ghost_mode import ghost_enabled
+
+        enabled = ghost_enabled(getattr(capture, "config", None))
+        if enabled != self._ghost_state:
+            self._ghost_state = enabled
+            logger.info(f"幽灵模式{'开启' if enabled else '关闭'}，目标窗口 0x{hwnd:x}")
+        if not enabled:
+            if self._ghost_applied:
+                self._ghost_applied = False
+                logger.info("幽灵模式关闭，云游戏窗口已还原")
+            self._ghost.release()
+            return
+        try:
+            applied = self._ghost.keep(hwnd)
+        except Exception as e:
+            self._ghost_fail_count += 1
+            if self._ghost_fail_count == 1 or self._ghost_fail_count % 30 == 0:
+                logger.warning(f"幽灵模式移动窗口失败（第 {self._ghost_fail_count} 次）: {e}")
+            return
+        if applied and not self._ghost_applied:
+            self._ghost_applied = True
+            logger.info(f"幽灵模式已生效：窗口现在位于 {win32gui.GetWindowRect(hwnd)}")
 
 # --- 猴子补丁 ---
 # 修改 DoubleSpinBox，使其默认拥有一个更大的最大值

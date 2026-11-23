@@ -75,21 +75,33 @@ class GenshinInteraction(BaseInteraction):
     def operate(self, fun, block=False):
         bg = not self.hwnd_window.is_foreground()
         result = None
-        if bg:
-            if block:
-                self.block_input()
-            self.cursor_position = win32api.GetCursorPos()
-            self.activate()
+        blocked = False
         try:
+            if bg:
+                if block:
+                    self.block_input()
+                    blocked = True
+                self.cursor_position = win32api.GetCursorPos()
+                self.activate()
             result = fun()
         except Exception as e:
             logger.error(f'operate exception', e)
-        if bg:
-            self.deactivate()
-            time.sleep(0.02)
-            win32api.SetCursorPos(self.cursor_position)
-            if block:
-                self.unblock_input()
+        finally:
+            if bg:
+                try:
+                    self.deactivate()
+                except Exception as e:
+                    logger.warning(f'operate deactivate failed: {e}')
+                time.sleep(0.02)
+                try:
+                    win32api.SetCursorPos(self.cursor_position)
+                except Exception as e:
+                    logger.warning(f'operate restore cursor failed: {e}')
+                if blocked:
+                    try:
+                        self.unblock_input()
+                    except Exception as e:
+                        logger.warning(f'operate unblock input failed: {e}')
         return result
 
     def send_key(self, key, down_time=0.02):
@@ -120,7 +132,8 @@ class GenshinInteraction(BaseInteraction):
 
     def send_key_up(self, key):
         logger.debug(f'send_key_up {key}')
-        vk_code = self.get_key_by_str(key)
+        # Match the target used by send_key_down (top_hwnd when present).
+        self.post_interaction.send_key_up(key)
         self.deactivate()
 
     def get_key_by_str(self, key):
@@ -306,8 +319,8 @@ class GenshinInteraction(BaseInteraction):
         self.hwnd_window.bring_to_front()
         self.activate()
 
-    def move_mouse_relative(self, dx, dy):
-        self.operate(lambda: self.do_move_mouse_relative(dx, dy), block=True)
+    def move_mouse_relative(self, dx, dy, block=True):
+        self.operate(lambda: self.do_move_mouse_relative(dx, dy), block=block)
 
     def do_move_mouse_relative(self, dx, dy):
         """

@@ -81,15 +81,20 @@ class AutoLeaveMissionTestTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
         rounds = self.test_rounds()
         loop = rounds <= 0
         done = 0
+        attempts = 0
         self.log_info(f"『退本测试』：{method}；进入副本后开始")
         self.log_info_notify("退本测试已启动，请进入副本")
         while loop or done < rounds:
             if not self.wait_in_team():
                 return
-            done += 1
-            self.log_info(f"[测试] 第 {done} 次退本，当前画面：{self.describe_screen()}")
+            attempts += 1
+            self.log_info(f"[测试] 第 {done + 1} 次退本（第 {attempts} 次尝试），"
+                          f"当前画面：{self.describe_screen()}")
             if not self.leave_once(method):
-                return
+                self.log_info("本次退本失败，任务继续运行，2 秒后重试")
+                self.sleep(2)
+                continue
+            done += 1
             if done == rounds:
                 break
             self.log_info("请重新进入副本，下一轮会自动继续（随时可以停止任务）")
@@ -156,20 +161,27 @@ class AutoLeaveMissionTestTask(DNAOneTimeTask, CommissionsTask, BaseCombatTask):
                           f"当前画面：{self.describe_screen()}")
             return True
 
-        self.log_info_notify(f"退本失败（用时 {elapsed:.1f} 秒，仍在局内），测试结束")
-        self.soundBeep()
+        self.log_info(f"退本失败（用时 {elapsed:.1f} 秒，仍在局内），任务继续运行重试")
+        if self.notify_once(
+            "leave_mission_failed",
+            f"退本失败（用时 {elapsed:.1f} 秒，仍在局内），任务继续运行重试"):
+            self.soundBeep()
         return False
 
     def run_menu_only(self):
         """只验证 ESC 菜单能不能打开，不点任何退本按钮。"""
         self.log_info("『退本测试』：只打开 ESC 菜单，核对菜单判据")
-        if not self.wait_in_team():
-            return
-        self.log_info(f"[测试] 当前画面：{self.describe_screen()}")
-        timeout = self.leave_timeout()
-        if self.open_in_mission_menu(time_out=timeout, raise_if_not_found=False):
-            self.log_info("[测试] ESC 菜单已打开，任务结束（按 ESC 可关闭菜单）")
-            self.log_info_notify("ESC 菜单已打开")
-        else:
-            self.log_info_notify(f"ESC 菜单没打开（{timeout:.0f} 秒超时）")
-            self.soundBeep()
+        self.wait_in_team()
+        while True:
+            self.log_info(f"[测试] 当前画面：{self.describe_screen()}")
+            timeout = self.leave_timeout()
+            if self.open_in_mission_menu(time_out=timeout, raise_if_not_found=False):
+                self.log_info("[测试] ESC 菜单已打开，任务结束（按 ESC 可关闭菜单）")
+                self.log_info_notify("ESC 菜单已打开")
+                return
+            # open_in_mission_menu 已经写过超时和通知；这里只负责继续跑，不结束任务。
+            self.log_info("[测试] ESC 菜单没打开，任务不会停止，2 秒后继续重试")
+            self.sleep(2)
+            if not self.in_team():
+                self.log_info("[测试] 已不在局内，等待重新进本")
+                self.wait_in_team()

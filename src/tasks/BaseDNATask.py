@@ -92,6 +92,8 @@ class BaseDNATask(BaseTask):
         self.key_config = self.get_global_config('Game Hotkey Config')  # 游戏热键配置
         # 已经提示过"键名不合法"的热键值（同一个值只提醒一次，别刷屏）
         self._bad_hotkeys = set()
+        # 每轮任务只弹一次的通知（菜单打不开、退本失败这类循环重试的提示）
+        self._notified_once = set()
         self.monthly_card_config = self.get_global_config('Monthly Card Config')
         self.afk_config = self.get_global_config('挂机设置')
         self.old_mouse_pos = None
@@ -152,6 +154,7 @@ class BaseDNATask(BaseTask):
     
     def enable(self):
         self.onetime_seen = set()
+        self._notified_once = set()
         super().enable()
 
     def log_onetime_info(self, msg: str, key=None|str):
@@ -276,6 +279,17 @@ class BaseDNATask(BaseTask):
 
     def log_info_notify(self, msg):
         self.log_info(msg, notify=self.afk_config['弹出通知'])
+
+    def notify_once(self, key, msg):
+        """同一轮任务里同一个 key 只弹一次通知；日志仍由调用方按需记录。"""
+        if key in self._notified_once:
+            return False
+        self._notified_once.add(key)
+        try:
+            self.log_info_notify(msg)
+        except Exception as e:
+            logger.warning(f"notify_once failed: {e}")
+        return True
 
     def move_mouse_to_safe_position(self, save_current_pos: bool = True, boxes: Union[list[Box], Box, None] = None):
         if self.afk_config["防止鼠标干扰"]:
@@ -729,9 +743,13 @@ class BaseDNATask(BaseTask):
     def move_mouse_relative(self, dx, dy, use_aim_sensitivity=False, original_Xsensitivity=1.0, original_Ysensitivity=1.0):
         dx, dy = self.calculate_sensitivity(dx, dy, use_aim_sensitivity, original_Xsensitivity, original_Ysensitivity)
         self.try_bring_to_front()
-        self.genshin_interaction.move_mouse_relative(int(dx), int(dy))
+        # 云游戏里只发鼠标位移，不用 BlockInput 封系统输入。
+        self.genshin_interaction.move_mouse_relative(int(dx), int(dy), block=not self.is_browser())
 
     def try_bring_to_front(self):
+        # 云游戏只做页面级焦点处理；这里注入 Alt/Win 抢前台会打断用户正在用的程序。
+        if self.is_browser():
+            return
         if not self.hwnd.is_foreground():
             def key_press(key, after_sleep=0):
                 win32api.keybd_event(key, 0, 0, 0)
@@ -806,9 +824,30 @@ class BaseDNATask(BaseTask):
         self._last_focus_click = now
         self.log_info("ESC 没打开菜单，点一下画面取键盘焦点后重试")
         self.ensure_game_foreground()
+        self.release_modifiers()
         self.click_relative(0.5, 0.5, after_sleep=0.2)
         self.sleep(0.2)
         return True
+
+    def release_modifiers(self):
+        """松开页面里的 Alt/Ctrl/Shift/Win，避免 Esc 变成 Alt+Esc。"""
+        interaction = getattr(self.executor, 'interaction', None)
+        release = getattr(interaction, 'release_modifiers', None)
+        if callable(release):
+            try:
+                release()
+            except Exception as e:
+                logger.debug(f"release modifiers failed: {e}")
+
+    def release_pointer_lock(self):
+        """先退出真实的 pointer lock，避免第一个 Esc 被浏览器吃掉。"""
+        interaction = getattr(self.executor, 'interaction', None)
+        exit_lock = getattr(interaction, 'exit_pointer_lock', None)
+        if callable(exit_lock):
+            try:
+                exit_lock()
+            except Exception as e:
+                logger.debug(f"exit pointer lock failed: {e}")
 
     def press_esc_until(self, condition, time_out=10, click_fallback=True):
         """按 ESC 直到 condition 成立；第一次没反应就点一下画面取焦点再重试。
@@ -826,6 +865,8 @@ class BaseDNATask(BaseTask):
         while not condition():
             if time.time() - start > time_out:
                 return False
+            self.release_pointer_lock()
+            self.release_modifiers()
             self.send_key("esc")
             if self.wait_until(condition, time_out=2, raise_if_not_found=False):
                 return True

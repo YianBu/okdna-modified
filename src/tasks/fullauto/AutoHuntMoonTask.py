@@ -3,9 +3,9 @@
 
 一轮的流程：
   活动界面点「开始挑战」（有「确认进入」弹窗就点它的「确定」）-> 进本加载 -> 左上角出现
-  金色菱形（关卡已加载）-> 稳 RUN_SETTLE 秒后按黄色追踪点图标判地图（狩月平地 / 狩月高台，
+  局内 HUD（左下角 Lv；旧版菱形也认）-> 稳 RUN_SETTLE 秒后按黄色追踪点图标判地图（狩月平地 / 狩月高台，
   各走各的录制时间轴）-> 锁定目标（起手序列里写了「锁定」就用它）
-  -> 菱形变红 = 已开战 -> 按「主控角色」的手法放技能（法露茜：起手锁定 + 连按 5 下终结技，循环普攻 + 每 3 秒连按两下战技）
+  -> 顶部出现「挑战剩余时间」= 已开战 -> 按「主控角色」的手法放技能（法露茜：起手锁定 + 连按 5 下终结技，循环普攻 + 每 3 秒连按两下战技）
   -> 结算页（成功点左下角圆形箭头图标重开，失败点「重新开始」）
   -> 点对应的重开按钮接着下一局，打满「打几次」结束（0 = 无限循环）。
 
@@ -13,10 +13,10 @@
 重开按钮，局内就继续打（已经在战斗中会跳过走位，直接按技能）。
 
 失败自愈（照上游「自动狩月人」那份 AutoMoonHunterTask 的写法）：
-  * 战斗中菱形连续消失 NO_COMBAT_TIME_OUT 秒（掉线 / 卡读条 / 结算页被漏读）：重开一局；
+  * 战斗中「挑战剩余时间」连续消失 NO_COMBAT_TIME_OUT 秒（掉线 / 卡读条 / 结算页被漏读）：重开一局；
   * 连续失败 RESTART_FAILURE_LIMIT 次：报错停止，不再无限重开；
   * 卡在加载/过场 LOAD_TIME_OUT 秒还认不出界面：报错停止，不空转；
-  * 点完「重新开始」会等结算页真的消失，免得重复点、重复计数。
+  * 点完重开/放弃挑战会等界面真的切换，免得重复点、重复计数。
 
 技能按「主控角色」走：法露茜按它的手法（锁定后连按 5 下终结技，再一直普攻、每 3 秒连按两下战技、
 每 20 秒补一次终结技）、
@@ -46,6 +46,8 @@ logger = Logger.get_logger(__name__)
 START_BTN = 'syr_start_btn_17'                    # 活动界面「开始挑战」按钮里的 ◯ 图标（起手判据）
 HUD_START = 'syr_hud_start'                    # 局内左上角金色菱形：关卡已加载、还没开战
 HUD_FIGHT = 'syr_hud_fight'                    # 同一个菱形的战斗态标注，只做判据兜底
+HUD_COMBAT = 'syr_combat_label_17'             # 1.7 战斗 HUD 顶部「挑战剩余时间」文字
+ESC_MENU = 'syr_esc_giveup_17'                 # 1.7 局内 ESC 菜单里的「放弃挑战」文字
 RESULT_RESTART = 'syr_hud_restart'             # 结算页「重新开始」的环形箭头
 # 1.7 的结算页有两种布局：成功 = 左下角单独的圆形箭头图标按钮（旁边是「退出」「前往」），
 # 失败 = 底部「退出」「重新开始」。两边用的是同一个箭头图标，靠它落的位置区分。
@@ -137,7 +139,7 @@ LOAD_TIME_OUT = 30
 # 加载/过场画面连续这么久都认不出来才报错停止：云游戏偶尔加载超过 30 秒（实测有），
 # 那期间只存一张截图 + 提示 + 继续等，别把这一整局白丢掉
 UNKNOWN_SCREEN_GIVE_UP = 180
-# 兜底：红菱形连续消失这么久（掉线、卡在读条、结算页被漏读）才算没在战斗：ESC 重开一局
+# 兜底：战斗 HUD（挑战剩余时间）连续消失这么久（掉线、卡在读条、结算页被漏读）才算没在战斗：ESC 重开一局
 NO_COMBAT_TIME_OUT = 30
 # 连续失败（开不了战 / 结算点不动）几次后报错停止。配置里只留「打几次」，这个用内部常量
 RESTART_FAILURE_LIMIT = 3
@@ -378,7 +380,7 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
         if self.run_failures > RESTART_FAILURE_LIMIT:
             raise Exception(f'连续 {self.run_failures} 次{reason}，停止任务')
         self.log_info(f'{reason}（第 {self.run_failures} 次，最多 {RESTART_FAILURE_LIMIT} 次），'
-                      f'ESC 重新开始')
+                      f'ESC 放弃挑战')
 
     # ------------------------------------------------------------------
     # 界面判据
@@ -392,7 +394,7 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
 
     def in_moon_hunter_mission(self):
         """是不是在局内（局内菜单盖在 HUD 上时也算）。"""
-        return self.in_team() or self.find_one(ESC_RETRY) is not None
+        return self.in_team() or self.find_one(ESC_MENU, threshold=0.8) is not None
 
     def find_hud_marker(self):
         """左上角那颗菱形（金/红都在同一个位置）。
@@ -402,12 +404,14 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
         return self.find_one(HUD_START) or self.find_one(HUD_FIGHT)
 
     def is_in_combat(self):
-        """左上角菱形变红 = 已开战（只看颜色，和界面语言、背景明暗都无关）。
+        """1.7 战斗 HUD 顶部有「挑战剩余时间」= 已开战。
 
-        位置优先用菱形模板（只截菱形内部、不含背景，亮暗场景都能命中），没匹上就退回固定框 ——
-        模板在明亮场景里会失手，差一点点就会把"已开战"漏判成没开战（表现：明明在打，
-        却按"没进战斗"处理，几十秒后误判成超时重开一局）。
+        不能再用左上角的红菱形：1.7 把那个位置换成了「巅峰排名 / 时限内击败高危敌人」
+        文字，红菱形判据在整场战斗里都会是 False（实测连续 30 秒误判成没进战斗）。
+        旧版红菱形保留作兜底，兼容没更新的客户端。
         """
+        if self.find_one(HUD_COMBAT, threshold=0.8):
+            return True
         box = self.find_hud_marker() or self.screen_box(HUD_MARKER_BOX)
         return self.calculate_color_percentage(SYR_MARKER_RED, box) > SYR_MARKER_RED_THRESHOLD
 
@@ -449,7 +453,7 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
 
     def handle_in_mission(self):
         """局内一次处理：走位触发战斗，然后一直打到结算页或需要重开一局。"""
-        if self.find_one(ESC_RETRY):
+        if self.find_one(ESC_MENU, threshold=0.8):
             # 局内菜单被打开了（一般是玩家自己按的 ESC）：关掉继续，绝不在这里点菜单
             self.send_key("esc", after_sleep=0.5)
             return
@@ -468,9 +472,9 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
                 self.play_walk()
                 # 两下空格之后稳 200ms，直接进起手/循环；锁定属于角色手法，流程里不再单独按
                 self.sleep(0.2)
-        # 不再单独"等开战"：直接进开打循环，技能由里面的"菱形变红"判断控制
+        # 不再单独"等开战"：直接进开打循环，技能由里面的"挑战剩余时间"判断控制
         if not self.fight_until_result():
-            # 红菱形长时间不在（掉线、卡在读条）：已经重开了一局，退回重新走位
+            # 战斗 HUD 长时间不在（掉线、卡在读条）：已经重开了一局，退回重新走位
             self.mission_started = False
 
     def wait_mission_loaded(self, time_out=LOAD_TIME_OUT):
@@ -536,7 +540,7 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
 
         「超时重启」：从**进战那一刻**开始计时，超过配置的秒数还没进结算页就重启这一局；
         结算（或者重开完的下一局）会重新从进战开始算。
-        红菱形闪一下不算"没进战斗"（判据在实机上会闪）：只有连续消失 NO_COMBAT_TIME_OUT 秒
+        战斗 HUD 闪一下不算"没进战斗"（模板在实机上会闪）：只有连续消失 NO_COMBAT_TIME_OUT 秒
         （掉线、卡在读条、结算页被漏读后停在加载画面）才算没在战斗 —— 重开一局。
         """
         no_combat_since = None
@@ -545,7 +549,7 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
             self.next_frame()
             if self.find_result_kind():
                 return True
-            if self.find_one(ESC_RETRY):
+            if self.find_one(ESC_MENU, threshold=0.8):
                 # 局内菜单被打开了（一般是玩家自己按的 ESC）：关掉继续，绝不在这里点菜单
                 self.send_key("esc", after_sleep=0.5)
                 continue
@@ -572,34 +576,24 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
             self.sleep(0.05 if getattr(self, "charge_state", None) == "charging" else 0.2)
 
     def restart_in_mission(self, time_out=10, load_time_out=LOAD_TIME_OUT):
-        """局内重来：ESC 开菜单 -> 点「重新开始」-> 点二次确认的「确定」。
+        """局内重来（1.7）：ESC 开菜单 -> 点「放弃挑战」-> 有二次确认就点「确定」。
 
-        两个都是云游戏爱丢的点击，所以都是"点到出结果为止"：先点到弹窗出来，再点到弹窗消失。
-        重开会把关卡重新加载一遍，菜单/弹窗/加载画面都会盖掉菱形判据，所以"先消失再回来"
-        正好当重开完成的信号；万一它没消失（秒重开）也不会卡住，直接往下走。
+        1.7 的局内菜单已经没有「重新开始」，现在是「继续游戏 / 设置 / 角色技能 / 放弃挑战」；
+        点完放弃挑战后游戏会回结算页或活动页，交给主循环处理，这里不再等重进本。
         """
         if not self.press_esc_until(
-                lambda: self.find_one(ESC_RETRY) is not None, time_out=time_out):
-            raise Exception('局内菜单打不开，没法重新开始')
-        self.wait_until(
-            condition=lambda: self.find_one(RESTART_CONFIRM) is not None,
-            post_action=lambda: self.click_ui_coord(COORD.ESC_MENU_RETRY, name=ESC_RETRY,
-                                                    after_sleep=0.5),
-            time_out=time_out,
-        )
-        self.wait_until(
-            condition=lambda: not self.find_one(RESTART_CONFIRM),
-            post_action=lambda: self.click_ui_coord(COORD.ESC_MENU_RETRY_CONFIRM,
-                                                    name=RESTART_CONFIRM, after_sleep=0.5),
-            time_out=time_out,
-        )
-        # 弹窗没了不等于真重开了：局内菜单必须也关掉，否则走位键全打进菜单里。
-        # 云游戏丢那一下点击时就是这种情况：菜单还开着，可 in_team() 已经是真，
-        # wait_mission_loaded() 会立刻放行 -> 后面每一步都失败。
-        if not self.wait_until(lambda: self.find_one(ESC_RETRY) is None, time_out=time_out,
-                               raise_if_not_found=False):
-            raise Exception('点了「重新开始」之后局内菜单一直没关掉，停止任务')
-        self.wait_mission_loaded(time_out=load_time_out)
+                lambda: self.find_one(ESC_MENU, threshold=0.8) is not None, time_out=time_out):
+            raise Exception('局内菜单打不开，没法放弃挑战')
+        self.log_info("局内菜单已打开，点「放弃挑战」")
+        self.click_ui_coord(COORD.SYR_GIVEUP, name=ESC_MENU, after_sleep=0.5)
+        # 1.7 的放弃挑战可能带二次确认；旧确认模板能匹配就点，匹配不到就等它自己回结算/活动页
+        if self.wait_until(lambda: self.find_one(RESTART_CONFIRM) is not None,
+                           time_out=2, raise_if_not_found=False):
+            self.click_ui_coord(COORD.ESC_MENU_RETRY_CONFIRM, name=RESTART_CONFIRM,
+                                after_sleep=0.5)
+        if not self.wait_until(lambda: self.find_one(ESC_MENU, threshold=0.8) is None,
+                               time_out=time_out, raise_if_not_found=False):
+            raise Exception('点了「放弃挑战」之后局内菜单一直没关掉，停止任务')
 
     # ------------------------------------------------------------------
     # 结算页

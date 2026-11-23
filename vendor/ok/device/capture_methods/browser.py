@@ -52,6 +52,64 @@ FAKE_POINTER_LOCK_JS = '''() => {
 }'''
 
 
+# Cloud games call navigator.keyboard.lock() while pointer lock is active. That is what makes
+# Alt+Tab / Win / Ctrl disappear into the page until the browser chrome gets focus. Report the
+# lock as granted, but leave the real keyboard with Windows. Disable with browser config
+# 'fake_keyboard_lock': False.
+FAKE_KEYBOARD_LOCK_JS = '''() => {
+  const patch = (obj, name, value) => {
+    try {
+      Object.defineProperty(obj, name, {configurable: true, writable: true, value});
+      return true;
+    } catch (e) {
+      try { obj[name] = value; return true; } catch (e2) { return false; }
+    }
+  };
+  const apply = () => {
+    const kb = navigator.keyboard;
+    if (!kb) return false;
+    const proto = Object.getPrototypeOf(kb) ||
+      (typeof Keyboard !== 'undefined' ? Keyboard.prototype : null);
+    if (!proto) return false;
+    // A reused page may already hold a real lock; release it before faking
+    // the API so the first Alt+Tab is not still captured.
+    try { if (typeof kb.unlock === 'function') kb.unlock(); } catch (e) {}
+    if (!window.__okFakeKeyboardLock) {
+      window.__okFakeKeyboardLock = true;
+      const realGetLayoutMap = typeof kb.getLayoutMap === 'function'
+        ? kb.getLayoutMap.bind(kb) : null;
+      patch(proto, 'lock', function () { return Promise.resolve(); });
+      patch(proto, 'unlock', function () {});
+      if (realGetLayoutMap) {
+        patch(proto, 'getLayoutMap', function () { return realGetLayoutMap(); });
+      }
+      patch(kb, 'lock', function () { return Promise.resolve(); });
+      patch(kb, 'unlock', function () {});
+    }
+    return true;
+  };
+  if (!apply() && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply, {once: true});
+  }
+  return true;
+}'''
+
+
+# Remember when the page last had real pointer lock. Chromium may release it
+# synchronously when the window loses focus, before the outer watchdog can
+# observe it; this timestamp lets the watchdog still resume the game on return.
+POINTER_LOCK_TRACKER_JS = '''() => {
+  if (!window.__okPointerLockTracker) {
+    window.__okPointerLockTracker = true;
+    window.__okPointerLockedAt = document.pointerLockElement ? Date.now() : 0;
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement) window.__okPointerLockedAt = Date.now();
+    }, true);
+  }
+  return true;
+}'''
+
+
 class BrowserCaptureMethod(BaseCaptureMethod):
     name = "Browser Capture"
     description = "Capture from Browser using Playwright and Windows Graphics Capture"
@@ -144,6 +202,10 @@ class BrowserCaptureMethod(BaseCaptureMethod):
         if fake_pointer_lock:
             await self.browser.add_init_script(script=f'({FAKE_POINTER_LOCK_JS})()')
 
+        fake_keyboard_lock = self.config.get('fake_keyboard_lock', True)
+        if fake_keyboard_lock:
+            await self.browser.add_init_script(script=f'({FAKE_KEYBOARD_LOCK_JS})()')
+
         await asyncio.sleep(0.1)
 
         self.page = None
@@ -184,12 +246,48 @@ class BrowserCaptureMethod(BaseCaptureMethod):
             # A reused page loaded before the init script was registered.
             await self.page.evaluate(FAKE_POINTER_LOCK_JS)
 
+        if fake_keyboard_lock:
+            # A reused page may already have called navigator.keyboard.lock().
+            await self.page.evaluate(FAKE_KEYBOARD_LOCK_JS)
+            logger.info('Browser keyboard lock disabled (system shortcuts stay with Windows)')
+
         await self._attach_browser_window_async()
+
+    async def _enable_page_focus(self):
+        """Let the page act focused while its Edge window stays in the background.
+
+        The cloud game forwards key events to the remote game only while it
+        believes the page is focused. CDP focus emulation gives it that state
+        without calling bring_to_front/SetForegroundWindow, so the user's
+        current foreground app is never disturbed.
+        """
+        page = self.page
+        if page is None:
+            return
+        try:
+            cdp = getattr(self, '_focus_cdp', None)
+            if cdp is None or getattr(self, '_focus_cdp_page', None) is not page:
+                cdp = await page.context.new_cdp_session(page)
+                self._focus_cdp = cdp
+                self._focus_cdp_page = page
+            await cdp.send('Emulation.setFocusEmulationEnabled', {'enabled': True})
+            try:
+                await cdp.send('Page.setWebLifecycleState', {'state': 'active'})
+            except Exception as e:
+                logger.debug(f'Browser page lifecycle active failed: {e}')
+            logger.info('Browser page focus emulation enabled (background input)')
+        except Exception as e:
+            logger.warning(f'Browser page focus emulation failed: {e}')
+        try:
+            await page.evaluate(POINTER_LOCK_TRACKER_JS)
+        except Exception as e:
+            logger.debug(f'Browser pointer lock tracker failed: {e}')
 
     async def _attach_browser_window_async(self):
         width, height = self._size
         await self.page.bring_to_front()
         await self.page.set_viewport_size({'width': width, 'height': height})
+        await self._enable_page_focus()
 
         for p in self.browser.pages:
             if p != self.page:
