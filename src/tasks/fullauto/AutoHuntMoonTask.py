@@ -259,6 +259,8 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
         self.mission_started = False
         self.current_map = MAP_FLAT
         self.current_run = 0
+        self.success_run = 0
+        self.fail_run = 0
         self.run_failures = 0
         # 黎瑟SP：开镜自动蓄力 + 定时刷新的状态
         self.long_press = COMBAT_LONG_PRESS
@@ -319,6 +321,8 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
     def init_all(self):
         """每次启动都从头开始：计数清零、这一局还没走位、技能序列还没放。"""
         self.current_run = 0
+        self.success_run = 0
+        self.fail_run = 0
         self.run_failures = 0
         self.mission_started = False
         self.current_map = MAP_FLAT
@@ -628,8 +632,15 @@ class AutoHuntMoonTask(CharacterRotationMixin, DNAOneTimeTask, CommissionsTask, 
         self.mission_started = False
         self.run_failures = 0
         self.current_run += 1
+        if kind == 'win':
+            self.success_run += 1
+        else:
+            self.fail_run += 1
         self.info_set("局数", str(self.current_run))
-        self.log_info(f'第 {self.current_run} 局完成（{"挑战成功" if kind == "win" else "挑战结束"}）')
+        self.info_set("成功局数", str(self.success_run))
+        self.info_set("失败局数", str(self.fail_run))
+        self.log_info(f'第 {self.current_run} 局完成（{"挑战成功" if kind == "win" else "挑战结束"}），'
+                      f'成功 {self.success_run} / 失败 {self.fail_run}')
         target = self.target_runs()
         if target and self.current_run >= target:
             self.log_info(f'已经打满 {target} 局，任务结束')
