@@ -66,11 +66,11 @@ jobs:
 
       - name: Build with PyAppify Action
         id: build-app
-        uses: ok-oldking/pyappify-action@v1.1.8
+        uses: YianBu/pyappify-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # 固定在 v1.1.8：v1.1.9 起移除了 use_release 输入，用 @master 会被忽略并每次重新编译 Rust launcher。
+          # 用自己 fork 的 action（基于上游 v1.1.10，恢复了 use_release）：上游 v1.1.9 起删掉了这个输入，直接跟 @master 会忽略它并每次重编 Rust launcher。
           build_exe_only: false
           # 复用已编译的独立 Launcher，跳过耗时最长的 Rust/Tauri 编译。
           # 目标 release 必须是已公开发布的：action 拿它的 browser_download_url 下资产，
